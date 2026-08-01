@@ -1,9 +1,9 @@
 # Threadline (GAS-Work-Tracker)
 
-A horizontal, Trello-like thread / sub-thread / action-item tracker for
-managing a large number of ongoing work threads,
-each with sub-threads that branch out
-horizontally, each containing lettered, checkable action steps.
+A horizontal, Trello-like tracker for managing a large number of ongoing
+work threads at once. Each thread branches out into sub-threads laid out
+side by side, and each sub-thread holds a list of lettered, checkable
+action steps.
 
 Runs as a Google Apps Script web app, backed by a Google Sheet, inside your
 own Google Workspace account: no external hosting, no separate login.
@@ -63,8 +63,8 @@ between Drive folders at any time without breaking anything.
 
 ## How live updates work
 
-Apps Script web apps have no server-push/WebSocket capability - `Index.html`
-polls `getLastModified()` every 5 seconds (a single cheap cell read), and
-only re-fetches the full board (`getBoardData()`) when that timestamp has
-actually changed. Every write function bumps the timestamp, and (with the
+Since Apps Script web apps can't push updates over a server socket,
+`Index.html` instead polls `getLastModified()` every 5 seconds (a single
+cheap cell read), only re-fetching the full board (`getBoardData()`) once
+that timestamp has actually moved. Every write function bumps the timestamp, and (with the
 installable trigger from step 5) so does any direct edit in the Sheet.
