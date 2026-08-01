@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Threadline</title>
+<base target="_top">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F7F3EC;
+    --paper-raised: #FFFFFF;
+    --ink: #1F2937;
+    --ink-soft: #5B6472;
+    --ink-faint: #9CA3AF;
+    --thread: #1E3A5F;
+    --thread-light: #B8C9DB;
+    --amber: #C17F2E;
+    --amber-soft: #F0E0C8;
+    --line: #E3DCD0;
+    --done: #7A9B76;
+    --danger: #B0554A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 80px 0;
+  }
+
+  .topbar {
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--line);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand-mark {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--thread);
+    letter-spacing: -0.02em;
+  }
+  .brand-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sync-chip {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .sync-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--done);
+    transition: background 0.2s ease;
+  }
+  .sync-dot.syncing { background: var(--amber); }
+
+  .page-header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 44px 32px 8px;
+  }
+  .breadcrumb {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .page-title {
+    font-family: 'Fraunces', serif;
+    font-size: 40px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .page-meta {
+    color: var(--ink-soft);
+    font-size: 14px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+  }
+  .meta-dot { color: var(--amber); }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  .thread {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,41,55,0.04);
+  }
+
+  .thread-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+  }
+  .thread.open .thread-header { border-bottom: 1px solid var(--line); }
+
+  .thread-title {
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink);
+    flex: 1;
+  }
+  .thread-progress { display: flex; align-items: center; gap: 8px; }
+  .progress-track {
+    width: 60px; height: 5px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: var(--done); border-radius: 3px; }
+  .progress-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .chevron {
+    color: var(--ink-faint);
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    width: 14px;
+  }
+  .thread.open .chevron { transform: rotate(90deg); }
+
+  .icon-btn {
+    color: var(--ink-faint);
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--danger); background: var(--paper); }
+
+  .thread-body { display: none; }
+  .thread.open .thread-body { display: block; }
+
+  .subthread-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    padding: 20px 22px 22px 22px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .subthread-row::-webkit-scrollbar { height: 8px; }
+  .subthread-row::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+  .subthread-connector {
+    width: 28px;
+    height: 2px;
+    background: repeating-linear-gradient(
+      to right,
+      var(--thread-light) 0px, var(--thread-light) 4px,
+      transparent 4px, transparent 8px
+    );
+    margin-top: 20px;
+    flex-shrink: 0;
+  }
+
+  .subthread {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: 260px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .subthread-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--paper-raised);
+  }
+  .subthread-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--thread);
+    flex-shrink: 0;
+  }
+  .subthread-titlewrap { flex: 1; min-width: 0; }
+  .subthread-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subthread-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--amber);
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+    display: block;
+  }
+  .subthread-chevron {
+    color: var(--ink-faint);
+    font-size: 11px;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .subthread.open .subthread-chevron { transform: rotate(90deg); }
+
+  .subthread-content { display: none; padding: 10px 14px 14px; }
+  .subthread.open .subthread-content { display: block; }
+
+  .action-list { display: flex; flex-direction: column; gap: 4px; }
+  .action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    transition: background 0.12s ease;
+  }
+  .action-item:hover { background: var(--paper-raised); }
+  .action-item:hover .icon-btn.delete-item { visibility: visible; }
+  .icon-btn.delete-item { visibility: hidden; margin-left: auto; }
+
+  .action-check {
+    width: 16px; height: 16px;
+    border-radius: 5px;
+    border: 1.5px solid var(--line);
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    color: transparent;
+    transition: all 0.15s ease;
+    background: var(--paper-raised);
+  }
+  .action-check.checked {
+    background: var(--done);
+    border-color: var(--done);
+    color: white;
+  }
+  .action-letter {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    width: 12px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .action-text {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.45;
+    flex: 1;
+    cursor: text;
+  }
+  .action-text.checked {
+    color: var(--ink-faint);
+    text-decoration: line-through;
+    text-decoration-color: var(--ink-faint);
+  }
+  .action-owner {
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  .add-action {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+  }
+  .add-action:hover { color: var(--thread); }
+
+  .add-subthread-col {
+    width: 150px;
+    flex-shrink: 0;
+    border: 1.5px dashed var(--line);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--ink-faint);
+    font-size: 13px;
+    cursor: pointer;
+    min-height: 46px;
+    align-self: flex-start;
+    margin-top: 0;
+    padding: 12px;
+  }
+  .add-subthread-col:hover { color: var(--amber); border-color: var(--amber); }
+
+  .add-thread-card {
+    border: 1.5px dashed var(--line);
+    border-radius: 14px;
+    padding: 18px 22px;
+    color: var(--ink-faint);
+    font-size: 14.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .add-thread-card:hover { border-color: var(--amber); color: var(--amber); }
+
+  .plus-icon {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .plus-icon.small { width: 14px; height: 14px; font-size: 10px; }
+
+  .footnote {
+    max-width: 1200px;
+    margin: 30px auto 0;
+    padding: 0 32px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .footnote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
+  .empty-state {
+    color: var(--ink-faint);
+    font-size: 14px;
+    padding: 20px 4px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark">Threadline</span>
+      <span class="brand-sub">Great Learning Workspace</span>
+    </div>
+    <div class="sync-chip">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">synced</span>
+    </div>
+  </div>
+
+  <div class="page-header">
+    <div class="breadcrumb">Threadline / All Threads</div>
+    <div class="page-title">All Threads</div>
+    <div class="page-meta" id="pageMeta">
+      <span id="metaThreadCount">0 threads</span>
+      <span class="meta-dot">·</span>
+      <span id="metaItemCount">0 items open</span>
+      <span class="meta-dot">·</span>
+      <span id="metaUpdated">loading...</span>
+    </div>
+  </div>
+
+  <div class="container" id="container">
+    <div class="empty-state">Loading board…</div>
+  </div>
+
+  <div class="footnote">
+    <span class="footnote-dot"></span>
+    Runs as a Google Apps Script web app · data lives in a linked Google Sheet · polling every 5s
+  </div>
+
+<script>
+  var boardData = { board: [], lastModified: 0 };
+  var pollTimer = null;
+
+  function escapeHtml(str) {
+    return String(str == null ? "" : str)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function setSyncing(isSyncing) {
+    document.getElementById("syncDot").classList.toggle("syncing", isSyncing);
+    document.getElementById("syncLabel").textContent = isSyncing ? "syncing…" : "synced";
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return "never";
+    var diff = Math.max(0, Date.now() - ts);
+    var mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.floor(hrs / 24) + "d ago";
+  }
+
+  // ---- Rendering ----
+
+  function renderBoard() {
+    var container = document.getElementById("container");
+    var board = boardData.board || [];
+
+    var totalItems = 0, openItems = 0;
+    board.forEach(function (t) {
+      t.subthreads.forEach(function (s) {
+        s.items.forEach(function (i) {
+          totalItems++;
+          if (!i.checked) openItems++;
+        });
+      });
+    });
+    document.getElementById("metaThreadCount").textContent = board.length + (board.length === 1 ? " thread" : " threads");
+    document.getElementById("metaItemCount").textContent = openItems + " of " + totalItems + " items open";
+    document.getElementById("metaUpdated").textContent = "updated " + timeAgo(boardData.lastModified);
+
+    if (board.length === 0) {
+      container.innerHTML = '<div class="empty-state">No threads yet.</div>' + renderAddThreadCard();
+      return;
+    }
+
+    container.innerHTML = board.map(renderThread).join("") + renderAddThreadCard();
+  }
+
+  function renderAddThreadCard() {
+    return '<div class="add-thread-card" data-action="add-thread"><span class="plus-icon">+</span> New thread</div>';
+  }
+
+  function renderThread(t) {
+    var done = 0, total = t.subthreads.reduce(function (acc, s) { return acc + s.items.length; }, 0);
+    t.subthreads.forEach(function (s) { s.items.forEach(function (i) { if (i.checked) done++; }); });
+    var pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    var subsHtml = t.subthreads.map(renderSubthread).join('<div class="subthread-connector"></div>');
+    if (t.subthreads.length > 0) subsHtml += '<div class="subthread-connector"></div>';
+
+    return (
+      '<div class="thread' + (t.collapsed ? "" : " open") + '" data-thread-id="' + t.threadId + '">' +
+        '<div class="thread-header" data-action="toggle-thread" data-thread-id="' + t.threadId + '">' +
+          '<span class="chevron">▶</span>' +
+          '<span class="thread-title" data-action="rename-thread" data-thread-id="' + t.threadId + '">' + escapeHtml(t.name) + "</span>" +
+          '<div class="thread-progress">' +
+            '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+            '<span class="progress-label">' + done + "/" + total + "</span>" +
+          "</div>" +
+          '<span class="icon-btn" data-action="delete-thread" data-thread-id="' + t.threadId + '" title="Delete thread">✕</span>' +
+        "</div>" +
+        '<div class="thread-body"><div class="subthread-row">' +
+          subsHtml +
+          '<div class="add-subthread-col" data-action="add-subthread" data-thread-id="' + t.threadId + '">' +
+            '<span class="plus-icon small">+</span> New sub-thread' +
+          "</div>" +
+        "</div></div>" +
+      "</div>"
+    );
+  }
+
+  function renderSubthread(s) {
+    var itemsHtml = s.items.map(function (i) { return renderItem(i, s.subThreadId); }).join("");
+    return (
+      '<div class="subthread' + (s.collapsed ? "" : " open") + '" data-subthread-id="' + s.subThreadId + '">' +
+        '<div class="subthread-header" data-action="toggle-subthread" data-subthread-id="' + s.subThreadId + '">' +
+          '<span class="subthread-dot"></span>' +
+          '<div class="subthread-titlewrap" data-action="rename-subthread" data-subthread-id="' + s.subThreadId + '">' +
+            '<div class="subthread-name">' + escapeHtml(s.name) + "</div>" +
+            (s.tag ? '<span class="subthread-tag">' + escapeHtml(s.tag) + "</span>" : "") +
+          "</div>" +
+          '<span class="icon-btn" data-action="delete-subthread" data-subthread-id="' + s.subThreadId + '" title="Delete sub-thread">✕</span>' +
+          '<span class="subthread-chevron">▶</span>' +
+        "</div>" +
+        '<div class="subthread-content">' +
+          '<div class="action-list">' + itemsHtml + "</div>" +
+          '<div class="add-action" data-action="add-item" data-subthread-id="' + s.subThreadId + '">' +
+            '<span class="plus-icon small">+</span> add step' +
+          "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderItem(i, subThreadId) {
+    return (
+      '<div class="action-item" data-item-id="' + i.itemId + '">' +
+        '<span class="action-letter">' + i.letter + "</span>" +
+        '<div class="action-check' + (i.checked ? " checked" : "") + '" data-action="toggle-item" data-item-id="' + i.itemId + '">' +
+          (i.checked ? "✓" : "") +
+        "</div>" +
+        '<div style="flex:1; min-width:0;">' +
+          '<div class="action-text' + (i.checked ? " checked" : "") + '" data-action="edit-item" data-item-id="' + i.itemId + '">' + escapeHtml(i.text) + "</div>" +
+          (i.owner ? '<div class="action-owner">' + escapeHtml(i.owner) + "</div>" : "") +
+        "</div>" +
+        '<span class="icon-btn delete-item" data-action="delete-item" data-item-id="' + i.itemId + '" title="Delete step">✕</span>' +
+      "</div>"
+    );
+  }
+
+  // ---- Data load / poll ----
+
+  function loadBoard() {
+    setSyncing(true);
+    google.script.run
+      .withSuccessHandler(function (data) {
+        boardData = data;
+        renderBoard();
+        setSyncing(false);
+      })
+      .withFailureHandler(function (err) {
+        setSyncing(false);
+        console.error(err);
+      })
+      .getBoardData();
+  }
+
+  function pollForUpdates() {
+    google.script.run
+      .withSuccessHandler(function (ts) {
+        if (ts !== boardData.lastModified) loadBoard();
+      })
+      .withFailureHandler(function (err) { console.error(err); })
+      .getLastModified();
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollForUpdates, 5000);
+  }
+
+  // ---- Action dispatch (event delegation - board re-renders wholesale) ----
+
+  document.getElementById("container").addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el) return;
+    e.stopPropagation();
+    var action = el.getAttribute("data-action");
+
+    if (action === "add-thread") {
+      var name = prompt("New thread name:");
+      if (name) { setSyncing(true); google.script.run.withSuccessHandler(loadBoard).addThread(name); }
+    } else if (action === "toggle-thread") {
+      var threadEl = el.closest(".thread");
+      var willOpen = !threadEl.classList.contains("open");
+      threadEl.classList.toggle("open");
+      google.script.run.setThreadCollapsed(el.getAttribute("data-thread-id"), !willOpen);
+    } else if (action === "rename-thread") {
+      var tid = el.getAttribute("data-thread-id");
+      var newName = prompt("Rename thread:", el.textContent);
+      if (newName) { setSyncing(true); google.script.run.withSuccessHandler(loadBoard).renameThread(tid, newName); }
+    } else if (action === "delete-thread") {
+      var tid2 = el.getAttribute("data-thread-id");
+      if (confirm("Delete this thread and everything in it?")) {
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).deleteThread(tid2);
+      }
+    } else if (action === "add-subthread") {
+      var threadId = el.getAttribute("data-thread-id");
+      var subName = prompt("New sub-thread name:");
+      if (subName) {
+        var tag = prompt("Optional tag (e.g. REFERRAL · SATYARTH):") || "";
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).addSubThread(threadId, subName, tag);
+      }
+    } else if (action === "toggle-subthread") {
+      var subEl = el.closest(".subthread");
+      var willOpenSub = !subEl.classList.contains("open");
+      subEl.classList.toggle("open");
+      google.script.run.setSubThreadCollapsed(el.getAttribute("data-subthread-id"), !willOpenSub);
+    } else if (action === "rename-subthread") {
+      var sid = el.getAttribute("data-subthread-id");
+      var nameEl = el.querySelector(".subthread-name");
+      var newSubName = prompt("Rename sub-thread:", nameEl ? nameEl.textContent : "");
+      if (newSubName) {
+        var newTag = prompt("Tag (leave blank to clear):", "") || "";
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).renameSubThread(sid, newSubName, newTag);
+      }
+    } else if (action === "delete-subthread") {
+      var sid2 = el.getAttribute("data-subthread-id");
+      if (confirm("Delete this sub-thread and its steps?")) {
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).deleteSubThread(sid2, false);
+      }
+    } else if (action === "add-item") {
+      var subId = el.getAttribute("data-subthread-id");
+      var text = prompt("New step:");
+      if (text) {
+        var owner = prompt("Waiting on / owner (optional):") || "";
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).addItem(subId, text, owner);
+      }
+    } else if (action === "toggle-item") {
+      var itemId = el.getAttribute("data-item-id");
+      el.classList.toggle("checked");
+      el.textContent = el.classList.contains("checked") ? "✓" : "";
+      var textEl = el.parentElement.querySelector(".action-text");
+      if (textEl) textEl.classList.toggle("checked");
+      google.script.run.withFailureHandler(function (err) { console.error(err); loadBoard(); }).toggleItem(itemId);
+    } else if (action === "edit-item") {
+      var iid = el.getAttribute("data-item-id");
+      var ownerEl = el.parentElement.querySelector(".action-owner");
+      var newText = prompt("Edit step:", el.textContent);
+      if (newText !== null) {
+        var newOwner = prompt("Waiting on / owner (blank to clear):", ownerEl ? ownerEl.textContent : "") || "";
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).editItem(iid, newText, newOwner);
+      }
+    } else if (action === "delete-item") {
+      var iid2 = el.getAttribute("data-item-id");
+      if (confirm("Delete this step?")) {
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).deleteItem(iid2);
+      }
+    }
+  });
+
+  loadBoard();
+  startPolling();
+</script>
+
+</body>
+</html>

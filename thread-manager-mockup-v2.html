@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Threadline — Hiring</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F7F3EC;
+    --paper-raised: #FFFFFF;
+    --ink: #1F2937;
+    --ink-soft: #5B6472;
+    --ink-faint: #9CA3AF;
+    --thread: #1E3A5F;
+    --thread-light: #B8C9DB;
+    --amber: #C17F2E;
+    --amber-soft: #F0E0C8;
+    --line: #E3DCD0;
+    --done: #7A9B76;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 80px 0;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--line);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand-mark {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--thread);
+    letter-spacing: -0.02em;
+  }
+  .brand-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .account-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 6px 14px 6px 6px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .account-avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--thread);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ===== HEADER ===== */
+  .page-header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 44px 32px 8px;
+  }
+  .breadcrumb {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .page-title {
+    font-family: 'Fraunces', serif;
+    font-size: 40px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .page-meta {
+    color: var(--ink-soft);
+    font-size: 14px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+  }
+  .meta-dot { color: var(--amber); }
+
+  /* ===== MAIN CONTAINER ===== */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  /* ===== THREAD CARD (expands horizontally) ===== */
+  .thread {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,41,55,0.04);
+  }
+
+  .thread-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+  }
+  .thread.open .thread-header { border-bottom: 1px solid var(--line); }
+
+  .thread-number {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+    font-weight: 500;
+  }
+  .thread-title {
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink);
+    flex: 1;
+  }
+  .thread-progress { display: flex; align-items: center; gap: 8px; }
+  .progress-track {
+    width: 60px; height: 5px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: var(--done); border-radius: 3px; }
+  .progress-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .chevron {
+    color: var(--ink-faint);
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    width: 14px;
+  }
+  .thread.open .chevron { transform: rotate(90deg); }
+
+  /* ===== THREAD BODY — HORIZONTAL SCROLL ROW OF SUB-THREADS ===== */
+  .thread-body {
+    display: none;
+  }
+  .thread.open .thread-body { display: block; }
+
+  .subthread-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    padding: 20px 22px 22px 22px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .subthread-row::-webkit-scrollbar { height: 8px; }
+  .subthread-row::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+  /* Horizontal connecting thread between sub-thread columns */
+  .subthread-connector {
+    width: 28px;
+    height: 2px;
+    background: repeating-linear-gradient(
+      to right,
+      var(--thread-light) 0px, var(--thread-light) 4px,
+      transparent 4px, transparent 8px
+    );
+    margin-top: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ===== SUB-THREAD COLUMN ===== */
+  .subthread {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: 260px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .subthread-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--paper-raised);
+  }
+  .subthread-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--thread);
+    flex-shrink: 0;
+  }
+  .subthread-titlewrap { flex: 1; min-width: 0; }
+  .subthread-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subthread-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--amber);
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+    display: block;
+  }
+  .subthread-chevron {
+    color: var(--ink-faint);
+    font-size: 11px;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .subthread.open .subthread-chevron { transform: rotate(90deg); }
+
+  .subthread-content { display: none; padding: 10px 14px 14px; }
+  .subthread.open .subthread-content { display: block; }
+
+  .action-list { display: flex; flex-direction: column; gap: 4px; }
+  .action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    transition: background 0.12s ease;
+  }
+  .action-item:hover { background: var(--paper-raised); }
+
+  .action-check {
+    width: 16px; height: 16px;
+    border-radius: 5px;
+    border: 1.5px solid var(--line);
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    color: transparent;
+    transition: all 0.15s ease;
+    background: var(--paper-raised);
+  }
+  .action-check.checked {
+    background: var(--done);
+    border-color: var(--done);
+    color: white;
+  }
+  .action-letter {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    width: 12px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .action-text {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.45;
+    flex: 1;
+  }
+  .action-text.checked {
+    color: var(--ink-faint);
+    text-decoration: line-through;
+    text-decoration-color: var(--ink-faint);
+  }
+  .action-owner {
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  .add-action {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+  }
+  .add-action:hover { color: var(--thread); }
+
+  /* Add new sub-thread column (sits inline at end of row) */
+  .add-subthread-col {
+    width: 150px;
+    flex-shrink: 0;
+    border: 1.5px dashed var(--line);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--ink-faint);
+    font-size: 13px;
+    cursor: pointer;
+    min-height: 46px;
+    align-self: flex-start;
+    margin-top: 0;
+    padding: 12px;
+  }
+  .add-subthread-col:hover { color: var(--amber); border-color: var(--amber); }
+
+  .add-thread-card {
+    border: 1.5px dashed var(--line);
+    border-radius: 14px;
+    padding: 18px 22px;
+    color: var(--ink-faint);
+    font-size: 14.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .add-thread-card:hover { border-color: var(--amber); color: var(--amber); }
+
+  .plus-icon {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .plus-icon.small { width: 14px; height: 14px; font-size: 10px; }
+
+  .footnote {
+    max-width: 1200px;
+    margin: 30px auto 0;
+    padding: 0 32px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .footnote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark">Threadline</span>
+      <span class="brand-sub">Great Learning Workspace</span>
+    </div>
+    <div class="account-chip">
+      <div class="account-avatar">VS</div>
+      vishnu.subramanian1@mygreatlearning.com
+    </div>
+  </div>
+
+  <div class="page-header">
+    <div class="breadcrumb">All Threads / Hiring</div>
+    <div class="page-title">Hiring</div>
+    <div class="page-meta">
+      <span>2 sub-threads</span>
+      <span class="meta-dot">·</span>
+      <span>3 of 5 items open</span>
+      <span class="meta-dot">·</span>
+      <span>Last updated today</span>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- THREAD: Hiring -->
+    <div class="thread open">
+      <div class="thread-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="chevron">▶</span>
+        <span class="thread-title">Hiring</span>
+        <div class="thread-progress">
+          <div class="progress-track"><div class="progress-fill" style="width:40%"></div></div>
+          <span class="progress-label">2/5</span>
+        </div>
+      </div>
+
+      <div class="thread-body">
+        <div class="subthread-row">
+
+          <!-- SUB-THREAD 1: Jainam Patel -->
+          <div class="subthread open">
+            <div class="subthread-header" onclick="this.parentElement.classList.toggle('open')">
+              <span class="subthread-dot"></span>
+              <div class="subthread-titlewrap">
+                <div class="subthread-name">Jainam Patel</div>
+                <span class="subthread-tag">REFERRAL · SATYARTH</span>
+              </div>
+              <span class="subthread-chevron">▶</span>
+            </div>
+            <div class="subthread-content">
+              <div class="action-list">
+                <div class="action-item">
+                  <span class="action-letter">A</span>
+                  <div class="action-check checked">✓</div>
+                  <span class="action-text checked">Ask Jainam if he has filled the application form</span>
+                </div>
+                <div class="action-item">
+                  <span class="action-letter">B</span>
+                  <div class="action-check"></div>
+                  <div>
+                    <div class="action-text">Once done, ask Shubhi who's aligned for his L1 interview</div>
+                    <div class="action-owner">waiting on Shubhi</div>
+                  </div>
+                </div>
+                <div class="action-item">
+                  <span class="action-letter">C</span>
+                  <div class="action-check"></div>
+                  <span class="action-text">Once aligned, speak to that person about Jainam as a referral from Satyarth</span>
+                </div>
+              </div>
+              <div class="add-action"><span class="plus-icon small">+</span> add step</div>
+            </div>
+          </div>
+
+          <div class="subthread-connector"></div>
+
+          <!-- SUB-THREAD 2: Siddhant Pathak -->
+          <div class="subthread open">
+            <div class="subthread-header" onclick="this.parentElement.classList.toggle('open')">
+              <span class="subthread-dot"></span>
+              <div class="subthread-titlewrap">
+                <div class="subthread-name">Siddhant Pathak</div>
+                <span class="subthread-tag">REVISIT · REJECTED</span>
+              </div>
+              <span class="subthread-chevron">▶</span>
+            </div>
+            <div class="subthread-content">
+              <div class="action-list">
+                <div class="action-item">
+                  <span class="action-letter">A</span>
+                  <div class="action-check checked">✓</div>
+                  <span class="action-text checked">Speak to Srivaths about his potential even though he's a rejected candidate</span>
+                </div>
+                <div class="action-item">
+                  <span class="action-letter">B</span>
+                  <div class="action-check"></div>
+                  <div>
+                    <div class="action-text">Once spoken and agreed, ask Shubhi to align an L2 interview for Siddhant with Srivaths</div>
+                    <div class="action-owner">blocked on step A confirmation</div>
+                  </div>
+                </div>
+              </div>
+              <div class="add-action"><span class="plus-icon small">+</span> add step</div>
+            </div>
+          </div>
+
+          <div class="subthread-connector"></div>
+
+          <!-- ADD NEW SUB-THREAD (inline, to the right) -->
+          <div class="add-subthread-col">
+            <span class="plus-icon small">+</span> New sub-thread
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD NEW THREAD -->
+    <div class="add-thread-card">
+      <span class="plus-icon">+</span> New thread
+    </div>
+
+  </div>
+
+  <div class="footnote">
+    <span class="footnote-dot"></span>
+    Runs as a Google Apps Script web app · data lives in a linked Google Sheet · signed in with your org account automatically
+  </div>
+
+<script>
+  document.querySelectorAll('.action-check').forEach(box => {
+    box.addEventListener('click', (e) => {
+      e.stopPropagation();
+      box.classList.toggle('checked');
+      box.textContent = box.classList.contains('checked') ? '✓' : '';
+      const row = box.closest('.action-item');
+      const text = row.querySelector('.action-text');
+      if (text) text.classList.toggle('checked');
+    });
+  });
+</script>
+
+</body>
+</html>
