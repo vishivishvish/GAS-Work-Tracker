@@ -111,7 +111,7 @@ function installEditTrigger() {
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Threadline")
+    .setTitle("Vishnu's Landscape Work Tracker")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
