@@ -1,4 +1,4 @@
-# Threadline (GAS-Work-Tracker)
+# Vishnu's Landscape Work Tracker (GAS-Work-Tracker)
 
 A horizontal, Trello-like tracker for managing a large number of ongoing
 work threads at once. Each thread branches out into sub-threads laid out
