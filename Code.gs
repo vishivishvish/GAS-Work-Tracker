@@ -13,13 +13,17 @@
  *    Sheet's ID in this script's Script Properties - you never need to
  *    hardcode or touch a Sheet ID yourself. Check View > Logs (or the
  *    execution log) for the Sheet's URL. Approve permissions when prompted.
- * 3. (Optional but recommended) Set up direct-edit sync: Triggers (clock
- *    icon) > Add Trigger > function `onEditInstalled`, event source
- *    "From spreadsheet", select the Sheet created in step 2, event type
- *    "On edit". This makes manual edits made directly in the Sheet show
- *    up in the web app too (the standalone-script `onEdit` simple trigger
- *    does NOT fire automatically for a sheet the script only references by
- *    ID, so this installable trigger is what makes that work).
+ * 3. (Optional but recommended) Select `installEditTrigger` in the function
+ *    dropdown and click Run. This makes manual edits made directly in the
+ *    Sheet show up in the web app too (the standalone-script `onEdit` simple
+ *    trigger does NOT fire automatically for a sheet the script only
+ *    references by ID, so this installable trigger is what makes that
+ *    work). Note: the Triggers UI's "Add Trigger" dialog only offers
+ *    "From spreadsheet" as an event source for scripts that are *bound* to
+ *    a Sheet (opened via Extensions > Apps Script from inside the Sheet
+ *    itself) - since this is a standalone script, that option won't appear
+ *    there, which is exactly why this is done in code instead via
+ *    `ScriptApp.newTrigger(...).forSpreadsheet(...)`.
  * 4. Deploy > New deployment > Web app. Execute as: Me. Who has access:
  *    Only myself (or your Workspace domain, if you want teammates using
  *    it too - they'd also need edit access to the Sheet). Copy the web
@@ -81,6 +85,26 @@ function ensureSheet_(ss, name, headers) {
     sheet.setFrozenRows(1);
   }
   return sheet;
+}
+
+/**
+ * Installs (or reinstalls) the onEdit trigger for direct-edit sync. Run this
+ * once manually from the function dropdown after setupSheets(). Done in
+ * code rather than via the Triggers UI because this is a standalone script:
+ * the UI's "From spreadsheet" event source is only offered to scripts bound
+ * to a Sheet, and forSpreadsheet() here works with any Sheet by ID.
+ */
+function installEditTrigger() {
+  const sheetId = getSheetId_();
+
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "onEditInstalled") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger("onEditInstalled").forSpreadsheet(sheetId).onEdit().create();
+  Logger.log("Installed onEdit trigger for sheet: " + sheetId);
 }
 
 // ---- Web app entry point ----

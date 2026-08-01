@@ -1,12 +1,12 @@
 # Threadline (GAS-Work-Tracker)
 
 A horizontal, Trello-like thread / sub-thread / action-item tracker for
-managing a large number of ongoing work threads (e.g. hiring pipelines),
-each with sub-threads (e.g. individual candidates) that branch out
+managing a large number of ongoing work threads,
+each with sub-threads that branch out
 horizontally, each containing lettered, checkable action steps.
 
 Runs as a Google Apps Script web app, backed by a Google Sheet, inside your
-own Google Workspace account - no external hosting, no separate login.
+own Google Workspace account: no external hosting, no separate login.
 
 ## Files
 
@@ -42,10 +42,13 @@ between Drive folders at any time without breaking anything.
 4. Select `setupSheets` in the function dropdown (top toolbar) and click **Run**.
    First run creates a new Sheet called "Threadline Data", builds all four
    tabs with headers, and stores its ID in this script's Script Properties.
-   Approve the permissions prompt. Check **View > Logs** for the Sheet's URL.
-5. *(Optional, recommended)* Set up direct-edit sync: **Triggers** (clock icon,
-   left sidebar) > **Add Trigger** > function `onEditInstalled`, event source
-   **From spreadsheet**, select the Sheet from step 4, event type **On edit**.
+   Approve the permissions prompt. Check `Execution Log` (top toolbar) for the Sheet's URL.
+5. *(Optional, recommended)* Set up direct-edit sync: select `installEditTrigger`
+   in the function dropdown and click **Run**. (Not done via the Triggers UI's
+   "Add Trigger" dialog - its "From spreadsheet" event source is only offered
+   to scripts *bound* to a Sheet, i.e. opened via Extensions > Apps Script
+   from inside the Sheet itself. Since this is a standalone script, that
+   option won't appear there, so the trigger is installed in code instead.)
    Without this, edits made directly in the Sheet (rather than through the
    web app) won't be picked up until the next write through the app bumps
    `LastModified` - with it, direct Sheet edits sync too.
