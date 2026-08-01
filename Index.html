@@ -8,18 +8,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #F7F3EC;
-    --paper-raised: #FFFFFF;
-    --ink: #1F2937;
-    --ink-soft: #5B6472;
-    --ink-faint: #9CA3AF;
-    --thread: #1E3A5F;
-    --thread-light: #B8C9DB;
-    --amber: #C17F2E;
-    --amber-soft: #F0E0C8;
-    --line: #E3DCD0;
-    --done: #7A9B76;
-    --danger: #B0554A;
+    --paper: #0F39A9;
+    --paper-raised: #1974D2;
+    --ink: #F5F8FF;
+    --ink-soft: #CBDCF7;
+    --ink-faint: #A9C4EE;
+    --thread: #FFFFFF;
+    --thread-light: rgba(255, 255, 255, 0.35);
+    --amber: #FFC24B;
+    --amber-soft: rgba(255, 194, 75, 0.18);
+    --line: rgba(255, 255, 255, 0.18);
+    --done: #4ADE80;
+    --danger: #FF7A7A;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -132,7 +132,7 @@
     font-size: 19px;
     font-weight: 500;
     color: var(--ink);
-    flex: 1;
+    display: block;
   }
   .thread-progress { display: flex; align-items: center; gap: 8px; }
   .progress-track {
@@ -227,6 +227,14 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9.5px;
     color: var(--amber);
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+    display: block;
+  }
+  .subthread-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--ink-faint);
     letter-spacing: 0.02em;
     margin-top: 2px;
     display: block;
@@ -373,6 +381,47 @@
     font-size: 14px;
     padding: 20px 4px;
   }
+
+  .thread-header[draggable="true"] { cursor: grab; }
+  .thread-header[draggable="true"]:active { cursor: grabbing; }
+  .thread.dragging { opacity: 0.5; }
+  .thread.drag-over { outline: 2px dashed var(--amber); outline-offset: 2px; }
+
+  .thread-number {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--paper);
+    background: var(--thread);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .thread-titleblock {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .thread-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+  }
+
+  .action-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
 </style>
 </head>
 <body>
@@ -459,14 +508,14 @@
       return;
     }
 
-    container.innerHTML = board.map(renderThread).join("") + renderAddThreadCard();
+    container.innerHTML = board.map(function (t, idx) { return renderThread(t, idx + 1); }).join("") + renderAddThreadCard();
   }
 
   function renderAddThreadCard() {
     return '<div class="add-thread-card" data-action="add-thread"><span class="plus-icon">+</span> New thread</div>';
   }
 
-  function renderThread(t) {
+  function renderThread(t, num) {
     var done = 0, total = t.subthreads.reduce(function (acc, s) { return acc + s.items.length; }, 0);
     t.subthreads.forEach(function (s) { s.items.forEach(function (i) { if (i.checked) done++; }); });
     var pct = total === 0 ? 0 : Math.round((done / total) * 100);
@@ -476,9 +525,13 @@
 
     return (
       '<div class="thread' + (t.collapsed ? "" : " open") + '" data-thread-id="' + t.threadId + '">' +
-        '<div class="thread-header" data-action="toggle-thread" data-thread-id="' + t.threadId + '">' +
+        '<div class="thread-header" draggable="true" data-action="toggle-thread" data-thread-id="' + t.threadId + '">' +
           '<span class="chevron">▶</span>' +
-          '<span class="thread-title" data-action="rename-thread" data-thread-id="' + t.threadId + '">' + escapeHtml(t.name) + "</span>" +
+          '<span class="thread-number">' + num + '</span>' +
+          '<div class="thread-titleblock" data-action="rename-thread" data-thread-id="' + t.threadId + '">' +
+            '<span class="thread-title">' + escapeHtml(t.name) + "</span>" +
+            (t.dateOpened ? '<span class="thread-date">Opened ' + escapeHtml(t.dateOpened) + "</span>" : "") +
+          "</div>" +
           '<div class="thread-progress">' +
             '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
             '<span class="progress-label">' + done + "/" + total + "</span>" +
@@ -504,6 +557,7 @@
           '<div class="subthread-titlewrap" data-action="rename-subthread" data-subthread-id="' + s.subThreadId + '">' +
             '<div class="subthread-name">' + escapeHtml(s.name) + "</div>" +
             (s.tag ? '<span class="subthread-tag">' + escapeHtml(s.tag) + "</span>" : "") +
+            (s.dateOpened ? '<span class="subthread-date">Opened ' + escapeHtml(s.dateOpened) + "</span>" : "") +
           "</div>" +
           '<span class="icon-btn" data-action="delete-subthread" data-subthread-id="' + s.subThreadId + '" title="Delete sub-thread">✕</span>' +
           '<span class="subthread-chevron">▶</span>' +
@@ -528,6 +582,7 @@
         '<div style="flex:1; min-width:0;">' +
           '<div class="action-text' + (i.checked ? " checked" : "") + '" data-action="edit-item" data-item-id="' + i.itemId + '">' + escapeHtml(i.text) + "</div>" +
           (i.owner ? '<div class="action-owner">' + escapeHtml(i.owner) + "</div>" : "") +
+          (i.date ? '<div class="action-date">' + escapeHtml(i.date) + "</div>" : "") +
         "</div>" +
         '<span class="icon-btn delete-item" data-action="delete-item" data-item-id="' + i.itemId + '" title="Delete step">✕</span>' +
       "</div>"
@@ -575,7 +630,11 @@
 
     if (action === "add-thread") {
       var name = prompt("New thread name:");
-      if (name) { setSyncing(true); google.script.run.withSuccessHandler(loadBoard).addThread(name); }
+      if (name) {
+        var dateOpened = prompt("Date opened (e.g. 2026-08-02, optional):") || "";
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).addThread(name, dateOpened);
+      }
     } else if (action === "toggle-thread") {
       var threadEl = el.closest(".thread");
       var willOpen = !threadEl.classList.contains("open");
@@ -583,8 +642,14 @@
       google.script.run.setThreadCollapsed(el.getAttribute("data-thread-id"), !willOpen);
     } else if (action === "rename-thread") {
       var tid = el.getAttribute("data-thread-id");
-      var newName = prompt("Rename thread:", el.textContent);
-      if (newName) { setSyncing(true); google.script.run.withSuccessHandler(loadBoard).renameThread(tid, newName); }
+      var nameEl2 = el.querySelector(".thread-title");
+      var dateEl2 = el.querySelector(".thread-date");
+      var newName = prompt("Rename thread:", nameEl2 ? nameEl2.textContent : "");
+      if (newName) {
+        var newDate = prompt("Date opened (blank to clear):", dateEl2 ? dateEl2.textContent.replace(/^Opened /, "") : "") || "";
+        setSyncing(true);
+        google.script.run.withSuccessHandler(loadBoard).renameThread(tid, newName, newDate);
+      }
     } else if (action === "delete-thread") {
       var tid2 = el.getAttribute("data-thread-id");
       if (confirm("Delete this thread and everything in it?")) {
@@ -595,9 +660,10 @@
       var threadId = el.getAttribute("data-thread-id");
       var subName = prompt("New sub-thread name:");
       if (subName) {
-        var tag = prompt("Optional tag (e.g. REFERRAL · SATYARTH):") || "";
+        var tag = prompt("Optional tag (e.g. REFERRAL):") || "";
+        var subDate = prompt("Date opened (optional):") || "";
         setSyncing(true);
-        google.script.run.withSuccessHandler(loadBoard).addSubThread(threadId, subName, tag);
+        google.script.run.withSuccessHandler(loadBoard).addSubThread(threadId, subName, tag, subDate);
       }
     } else if (action === "toggle-subthread") {
       var subEl = el.closest(".subthread");
@@ -607,11 +673,14 @@
     } else if (action === "rename-subthread") {
       var sid = el.getAttribute("data-subthread-id");
       var nameEl = el.querySelector(".subthread-name");
+      var tagEl = el.querySelector(".subthread-tag");
+      var subDateEl = el.querySelector(".subthread-date");
       var newSubName = prompt("Rename sub-thread:", nameEl ? nameEl.textContent : "");
       if (newSubName) {
-        var newTag = prompt("Tag (leave blank to clear):", "") || "";
+        var newTag = prompt("Tag (leave blank to clear):", tagEl ? tagEl.textContent : "") || "";
+        var newSubDate = prompt("Date opened (blank to clear):", subDateEl ? subDateEl.textContent.replace(/^Opened /, "") : "") || "";
         setSyncing(true);
-        google.script.run.withSuccessHandler(loadBoard).renameSubThread(sid, newSubName, newTag);
+        google.script.run.withSuccessHandler(loadBoard).renameSubThread(sid, newSubName, newTag, newSubDate);
       }
     } else if (action === "delete-subthread") {
       var sid2 = el.getAttribute("data-subthread-id");
@@ -624,8 +693,9 @@
       var text = prompt("New step:");
       if (text) {
         var owner = prompt("Waiting on / owner (optional):") || "";
+        var itemDate = prompt("Date relevant (optional):") || "";
         setSyncing(true);
-        google.script.run.withSuccessHandler(loadBoard).addItem(subId, text, owner);
+        google.script.run.withSuccessHandler(loadBoard).addItem(subId, text, owner, itemDate);
       }
     } else if (action === "toggle-item") {
       var itemId = el.getAttribute("data-item-id");
@@ -637,11 +707,13 @@
     } else if (action === "edit-item") {
       var iid = el.getAttribute("data-item-id");
       var ownerEl = el.parentElement.querySelector(".action-owner");
+      var itemDateEl = el.parentElement.querySelector(".action-date");
       var newText = prompt("Edit step:", el.textContent);
       if (newText !== null) {
         var newOwner = prompt("Waiting on / owner (blank to clear):", ownerEl ? ownerEl.textContent : "") || "";
+        var newItemDate = prompt("Date relevant (blank to clear):", itemDateEl ? itemDateEl.textContent : "") || "";
         setSyncing(true);
-        google.script.run.withSuccessHandler(loadBoard).editItem(iid, newText, newOwner);
+        google.script.run.withSuccessHandler(loadBoard).editItem(iid, newText, newOwner, newItemDate);
       }
     } else if (action === "delete-item") {
       var iid2 = el.getAttribute("data-item-id");
@@ -650,6 +722,68 @@
         google.script.run.withSuccessHandler(loadBoard).deleteItem(iid2);
       }
     }
+  });
+
+  // ---- Thread drag-and-drop reordering ----
+
+  var draggedThreadId = null;
+  var boardEl = document.getElementById("container");
+
+  boardEl.addEventListener("dragstart", function (e) {
+    var threadEl = e.target.closest(".thread");
+    if (!threadEl) return;
+    draggedThreadId = threadEl.getAttribute("data-thread-id");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", draggedThreadId);
+    threadEl.classList.add("dragging");
+  });
+
+  boardEl.addEventListener("dragend", function (e) {
+    var threadEl = e.target.closest(".thread");
+    if (threadEl) threadEl.classList.remove("dragging");
+    document.querySelectorAll(".thread.drag-over").forEach(function (el2) { el2.classList.remove("drag-over"); });
+    draggedThreadId = null;
+  });
+
+  boardEl.addEventListener("dragover", function (e) {
+    var threadEl = e.target.closest(".thread");
+    if (!threadEl || !draggedThreadId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (threadEl.getAttribute("data-thread-id") !== draggedThreadId) {
+      threadEl.classList.add("drag-over");
+    }
+  });
+
+  boardEl.addEventListener("dragleave", function (e) {
+    var threadEl = e.target.closest(".thread");
+    if (threadEl) threadEl.classList.remove("drag-over");
+  });
+
+  boardEl.addEventListener("drop", function (e) {
+    var targetEl = e.target.closest(".thread");
+    document.querySelectorAll(".thread.drag-over").forEach(function (el2) { el2.classList.remove("drag-over"); });
+    if (!targetEl || !draggedThreadId) return;
+    e.preventDefault();
+    var targetId = targetEl.getAttribute("data-thread-id");
+    if (targetId === draggedThreadId) return;
+
+    var ids = (boardData.board || []).map(function (t) { return t.threadId; });
+    var fromIdx = ids.indexOf(draggedThreadId);
+    if (fromIdx === -1) return;
+
+    var rect = targetEl.getBoundingClientRect();
+    var insertAfter = (e.clientY - rect.top) > rect.height / 2;
+
+    ids.splice(fromIdx, 1);
+    var toIdx = ids.indexOf(targetId);
+    ids.splice(insertAfter ? toIdx + 1 : toIdx, 0, draggedThreadId);
+
+    setSyncing(true);
+    google.script.run
+      .withSuccessHandler(loadBoard)
+      .withFailureHandler(function (err) { console.error(err); loadBoard(); })
+      .reorderThreads(ids);
   });
 
   loadBoard();

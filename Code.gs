@@ -13,7 +13,13 @@
  *    Sheet's ID in this script's Script Properties - you never need to
  *    hardcode or touch a Sheet ID yourself. Check View > Logs (or the
  *    execution log) for the Sheet's URL. Approve permissions when prompted.
- * 3. (Optional but recommended) Select `installEditTrigger` in the function
+ * 3. If you already had this project set up before the DateOpened/Date
+ *    columns existed, select `migrateAddDateColumns` in the function
+ *    dropdown and click Run once - this adds the missing date columns to
+ *    your existing Sheet without touching any existing data. Brand-new
+ *    setups get these columns automatically from `setupSheets` and can
+ *    skip this step.
+ * 4. (Optional but recommended) Select `installEditTrigger` in the function
  *    dropdown and click Run. This makes manual edits made directly in the
  *    Sheet show up in the web app too (the standalone-script `onEdit` simple
  *    trigger does NOT fire automatically for a sheet the script only
@@ -24,11 +30,11 @@
  *    itself) - since this is a standalone script, that option won't appear
  *    there, which is exactly why this is done in code instead via
  *    `ScriptApp.newTrigger(...).forSpreadsheet(...)`.
- * 4. Deploy > New deployment > Web app. Execute as: Me. Who has access:
+ * 5. Deploy > New deployment > Web app. Execute as: Me. Who has access:
  *    Only myself (or your Workspace domain, if you want teammates using
  *    it too - they'd also need edit access to the Sheet). Copy the web
  *    app URL - that's your bookmark.
- * 5. To ship code changes later WITHOUT changing that URL: Deploy >
+ * 6. To ship code changes later WITHOUT changing that URL: Deploy >
  *    Manage deployments > pick the existing deployment > Edit (pencil) >
  *    Version: New version > Deploy. Creating a brand new deployment
  *    instead would give you a different URL.
@@ -58,9 +64,9 @@ function setupSheets() {
     props.setProperty("SHEET_ID", ss.getId());
   }
 
-  ensureSheet_(ss, SHEET_NAMES.THREADS, ["ThreadID", "Name", "Order", "Collapsed"]);
-  ensureSheet_(ss, SHEET_NAMES.SUBTHREADS, ["SubThreadID", "ThreadID", "Name", "Tag", "Order", "Collapsed"]);
-  ensureSheet_(ss, SHEET_NAMES.ITEMS, ["ItemID", "SubThreadID", "Text", "Checked", "Owner", "Order"]);
+  ensureSheet_(ss, SHEET_NAMES.THREADS, ["ThreadID", "Name", "Order", "Collapsed", "DateOpened"]);
+  ensureSheet_(ss, SHEET_NAMES.SUBTHREADS, ["SubThreadID", "ThreadID", "Name", "Tag", "Order", "Collapsed", "DateOpened"]);
+  ensureSheet_(ss, SHEET_NAMES.ITEMS, ["ItemID", "SubThreadID", "Text", "Checked", "Owner", "Order", "Date"]);
 
   const metaSheet = ensureSheet_(ss, SHEET_NAMES.META, ["Key", "Value"]);
   if (metaSheet.getRange("A2").getValue() !== "LastModified") {
@@ -85,6 +91,25 @@ function ensureSheet_(ss, name, headers) {
     sheet.setFrozenRows(1);
   }
   return sheet;
+}
+
+function ensureColumn_(sheet, colName) {
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (headers.indexOf(colName) === -1) {
+    sheet.getRange(1, lastCol + 1).setValue(colName);
+  }
+}
+
+/**
+ * One-time migration for Sheets created before DateOpened/Date existed.
+ * Safe to run multiple times - only adds a header if it's missing.
+ */
+function migrateAddDateColumns() {
+  ensureColumn_(getSheet_(SHEET_NAMES.THREADS), "DateOpened");
+  ensureColumn_(getSheet_(SHEET_NAMES.SUBTHREADS), "DateOpened");
+  ensureColumn_(getSheet_(SHEET_NAMES.ITEMS), "Date");
+  Logger.log("Date columns ensured on Threads, SubThreads, and Items.");
 }
 
 /**
@@ -217,12 +242,14 @@ function getBoardData() {
               text: i.Text,
               checked: !!i.Checked,
               owner: i.Owner || "",
+              date: i.Date || "",
             };
           });
         return {
           subThreadId: s.SubThreadID,
           name: s.Name,
           tag: s.Tag || "",
+          dateOpened: s.DateOpened || "",
           collapsed: !!s.Collapsed,
           items: its,
         };
@@ -230,6 +257,7 @@ function getBoardData() {
     return {
       threadId: t.ThreadID,
       name: t.Name,
+      dateOpened: t.DateOpened || "",
       collapsed: !!t.Collapsed,
       subthreads: subs,
     };
@@ -240,21 +268,35 @@ function getBoardData() {
 
 // ---- Writes: threads ----
 
-function addThread(name) {
+function addThread(name, dateOpened) {
   const sheet = getSheet_(SHEET_NAMES.THREADS);
   const id = Utilities.getUuid();
-  sheet.appendRow([id, name, sheet.getLastRow(), false]);
+  sheet.appendRow([id, name, sheet.getLastRow(), false, dateOpened || ""]);
   bumpLastModified_();
   return id;
 }
 
-function renameThread(threadId, newName) {
-  updateCell_(getSheet_(SHEET_NAMES.THREADS), "ThreadID", threadId, "Name", newName);
+function renameThread(threadId, newName, dateOpened) {
+  const sheet = getSheet_(SHEET_NAMES.THREADS);
+  updateCell_(sheet, "ThreadID", threadId, "Name", newName);
+  if (dateOpened !== undefined) updateCell_(sheet, "ThreadID", threadId, "DateOpened", dateOpened);
   bumpLastModified_();
 }
 
 function setThreadCollapsed(threadId, collapsed) {
   updateCell_(getSheet_(SHEET_NAMES.THREADS), "ThreadID", threadId, "Collapsed", collapsed);
+  bumpLastModified_();
+}
+
+/**
+ * Persists a new thread display order after a drag-and-drop reorder in the
+ * UI. orderedThreadIds is the full list of ThreadIDs in their new order.
+ */
+function reorderThreads(orderedThreadIds) {
+  const sheet = getSheet_(SHEET_NAMES.THREADS);
+  orderedThreadIds.forEach(function (id, idx) {
+    updateCell_(sheet, "ThreadID", id, "Order", idx);
+  });
   bumpLastModified_();
 }
 
@@ -273,18 +315,19 @@ function deleteThread(threadId) {
 
 // ---- Writes: sub-threads ----
 
-function addSubThread(threadId, name, tag) {
+function addSubThread(threadId, name, tag, dateOpened) {
   const sheet = getSheet_(SHEET_NAMES.SUBTHREADS);
   const id = Utilities.getUuid();
-  sheet.appendRow([id, threadId, name, tag || "", sheet.getLastRow(), false]);
+  sheet.appendRow([id, threadId, name, tag || "", sheet.getLastRow(), false, dateOpened || ""]);
   bumpLastModified_();
   return id;
 }
 
-function renameSubThread(subThreadId, newName, newTag) {
+function renameSubThread(subThreadId, newName, newTag, dateOpened) {
   const sheet = getSheet_(SHEET_NAMES.SUBTHREADS);
   updateCell_(sheet, "SubThreadID", subThreadId, "Name", newName);
   updateCell_(sheet, "SubThreadID", subThreadId, "Tag", newTag || "");
+  if (dateOpened !== undefined) updateCell_(sheet, "SubThreadID", subThreadId, "DateOpened", dateOpened);
   bumpLastModified_();
 }
 
@@ -307,18 +350,19 @@ function deleteSubThread(subThreadId, skipBump) {
 
 // ---- Writes: items ----
 
-function addItem(subThreadId, text, owner) {
+function addItem(subThreadId, text, owner, date) {
   const sheet = getSheet_(SHEET_NAMES.ITEMS);
   const id = Utilities.getUuid();
-  sheet.appendRow([id, subThreadId, text, false, owner || "", sheet.getLastRow()]);
+  sheet.appendRow([id, subThreadId, text, false, owner || "", sheet.getLastRow(), date || ""]);
   bumpLastModified_();
   return id;
 }
 
-function editItem(itemId, newText, newOwner) {
+function editItem(itemId, newText, newOwner, newDate) {
   const sheet = getSheet_(SHEET_NAMES.ITEMS);
   updateCell_(sheet, "ItemID", itemId, "Text", newText);
   updateCell_(sheet, "ItemID", itemId, "Owner", newOwner || "");
+  if (newDate !== undefined) updateCell_(sheet, "ItemID", itemId, "Date", newDate || "");
   bumpLastModified_();
 }
 
@@ -338,7 +382,7 @@ function deleteItem(itemId) {
   bumpLastModified_();
 }
 
-// ---- Direct-Sheet-edit sync (installable trigger, see setup step 3) ----
+// ---- Direct-Sheet-edit sync (installable trigger, see setup step 4) ----
 
 function onEditInstalled(e) {
   if (e.range.getSheet().getName() !== SHEET_NAMES.META) {

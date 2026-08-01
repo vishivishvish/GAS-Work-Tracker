@@ -21,14 +21,14 @@ own Google Workspace account: no external hosting, no separate login.
 
 ## Data model (Google Sheet, auto-created by `setupSheets()`)
 
-- `Threads`: ThreadID, Name, Order, Collapsed
-- `SubThreads`: SubThreadID, ThreadID, Name, Tag, Order, Collapsed
-- `Items`: ItemID, SubThreadID, Text, Checked, Owner, Order
+- `Threads`: ThreadID, Name, Order, Collapsed, DateOpened
+- `SubThreads`: SubThreadID, ThreadID, Name, Tag, Order, Collapsed, DateOpened
+- `Items`: ItemID, SubThreadID, Text, Checked, Owner, Order, Date
 - `Meta`: Key, Value (holds `LastModified`, bumped by every write)
 
-Letters (A, B, C...) for action steps are computed at read time from each
-item's position within its sub-thread - never stored - so deleting/adding
-items never causes duplicate or stale letters.
+Letters (A, B, C...) for action steps and numbers (1, 2, 3...) for threads
+are both computed at read time from each row's position - never stored -
+so deleting/adding/reordering never causes duplicate or stale labels.
 
 The Sheet is referenced by its permanent Drive file ID (stored in this
 script's Script Properties), never by folder path, so it can be moved
@@ -43,7 +43,12 @@ between Drive folders at any time without breaking anything.
    First run creates a new Sheet called "Threadline Data", builds all four
    tabs with headers, and stores its ID in this script's Script Properties.
    Approve the permissions prompt. Check `Execution Log` (top toolbar) for the Sheet's URL.
-5. *(Optional, recommended)* Set up direct-edit sync: select `installEditTrigger`
+5. *If you had this project set up before the `DateOpened`/`Date` columns
+   existed*, select `migrateAddDateColumns` in the function dropdown and
+   click **Run** once. It only adds the missing columns and never touches
+   existing data - brand-new setups already have them from `setupSheets`
+   and can skip this.
+6. *(Optional, recommended)* Set up direct-edit sync: select `installEditTrigger`
    in the function dropdown and click **Run**. (Not done via the Triggers UI's
    "Add Trigger" dialog - its "From spreadsheet" event source is only offered
    to scripts *bound* to a Sheet, i.e. opened via Extensions > Apps Script
@@ -52,11 +57,11 @@ between Drive folders at any time without breaking anything.
    Without this, edits made directly in the Sheet (rather than through the
    web app) won't be picked up until the next write through the app bumps
    `LastModified` - with it, direct Sheet edits sync too.
-6. **Deploy > New deployment > Web app**. Execute as: **Me**. Who has
+7. **Deploy > New deployment > Web app**. Execute as: **Me**. Who has
    access: **Only myself** (or your Workspace domain, if teammates should
    use it too - they'd then also need edit access to the underlying Sheet).
    Copy the resulting web app URL - that's the bookmark you'll use daily.
-7. To ship code changes later **without changing that URL**: **Deploy >
+8. To ship code changes later **without changing that URL**: **Deploy >
    Manage deployments** > pick the existing deployment > pencil/Edit icon >
    Version: **New version** > Deploy. Creating a brand-new deployment
    instead of editing the existing one gives you a different URL each time.
@@ -67,4 +72,21 @@ Since Apps Script web apps can't push updates over a server socket,
 `Index.html` instead polls `getLastModified()` every 5 seconds (a single
 cheap cell read), only re-fetching the full board (`getBoardData()`) once
 that timestamp has actually moved. Every write function bumps the timestamp, and (with the
-installable trigger from step 5) so does any direct edit in the Sheet.
+installable trigger from step 6) so does any direct edit in the Sheet.
+
+## Thread reordering
+
+Threads are numbered by their on-page position, and each thread's header
+(the row with the chevron, number, and title) is a drag handle: drag one
+thread and drop it above or below another to reorder. The drop calls
+`reorderThreads()`, which rewrites the `Order` column for every thread, and
+the board re-renders immediately with updated numbers - other open tabs
+pick up the new order on their next 5-second poll.
+
+## Dates
+
+Threads, sub-threads, and items each carry an optional date (when the
+thread/sub-thread was opened, or when an item was last relevant). They're
+set through the same prompts used for naming: adding or renaming a thread
+or sub-thread, and adding or editing an item, all ask for a date as one of
+the sequential prompts (leave blank to clear it).
