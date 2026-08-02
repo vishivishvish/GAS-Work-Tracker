@@ -19,6 +19,10 @@
  *    your existing Sheet without touching any existing data. Brand-new
  *    setups get these columns automatically from `setupSheets` and can
  *    skip this step.
+ * 3b. If you already had this project set up before the Color column
+ *    existed, select `migrateAddThreadColor` in the function dropdown and
+ *    click Run once - adds the missing column without touching existing
+ *    data. Brand-new setups get it automatically from `setupSheets`.
  * 4. (Optional but recommended) Select `installEditTrigger` in the function
  *    dropdown and click Run. This makes manual edits made directly in the
  *    Sheet show up in the web app too (the standalone-script `onEdit` simple
@@ -51,6 +55,10 @@ const SHEET_NAMES = {
   META: "Meta",
 };
 
+// Allowed thread colors - kept intentionally light so the dark ink text used
+// on them stays readable. The matching visual palette lives in Index.html.
+const THREAD_COLORS = ["blue", "red", "green", "yellow", "gray", "lavender", "lilac", "orange"];
+
 // ---- Setup ----
 
 function setupSheets() {
@@ -64,7 +72,7 @@ function setupSheets() {
     props.setProperty("SHEET_ID", ss.getId());
   }
 
-  ensureSheet_(ss, SHEET_NAMES.THREADS, ["ThreadID", "Name", "Order", "Collapsed", "DateOpened"]);
+  ensureSheet_(ss, SHEET_NAMES.THREADS, ["ThreadID", "Name", "Order", "Collapsed", "DateOpened", "Color"]);
   ensureSheet_(ss, SHEET_NAMES.SUBTHREADS, ["SubThreadID", "ThreadID", "Name", "Tag", "Order", "Collapsed", "DateOpened"]);
   ensureSheet_(ss, SHEET_NAMES.ITEMS, ["ItemID", "SubThreadID", "Text", "Checked", "Owner", "Order", "Date"]);
 
@@ -113,6 +121,15 @@ function migrateAddDateColumns() {
 }
 
 /**
+ * One-time migration for Sheets created before per-thread Color existed.
+ * Safe to run multiple times - only adds the header if it's missing.
+ */
+function migrateAddThreadColor() {
+  ensureColumn_(getSheet_(SHEET_NAMES.THREADS), "Color");
+  Logger.log("Color column ensured on Threads.");
+}
+
+/**
  * Installs (or reinstalls) the onEdit trigger for direct-edit sync. Run this
  * once manually from the function dropdown after setupSheets(). Done in
  * code rather than via the Triggers UI because this is a standalone script:
@@ -136,7 +153,7 @@ function installEditTrigger() {
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Vishnu's Landscape Work Tracker")
+    .setTitle("Vishnu's Landscape")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
@@ -272,6 +289,7 @@ function getBoardData() {
       name: t.Name,
       dateOpened: formatDateValue_(t.DateOpened),
       collapsed: !!t.Collapsed,
+      color: t.Color || "blue",
       subthreads: subs,
     };
   });
@@ -284,9 +302,15 @@ function getBoardData() {
 function addThread(name, dateOpened) {
   const sheet = getSheet_(SHEET_NAMES.THREADS);
   const id = Utilities.getUuid();
-  sheet.appendRow([id, name, sheet.getLastRow(), false, dateOpened || ""]);
+  sheet.appendRow([id, name, sheet.getLastRow(), false, dateOpened || "", "blue"]);
   bumpLastModified_();
   return id;
+}
+
+function setThreadColor(threadId, color) {
+  if (THREAD_COLORS.indexOf(color) === -1) throw new Error("Unknown thread color: " + color);
+  updateCell_(getSheet_(SHEET_NAMES.THREADS), "ThreadID", threadId, "Color", color);
+  bumpLastModified_();
 }
 
 function renameThread(threadId, newName, dateOpened) {
@@ -309,6 +333,19 @@ function reorderThreads(orderedThreadIds) {
   const sheet = getSheet_(SHEET_NAMES.THREADS);
   orderedThreadIds.forEach(function (id, idx) {
     updateCell_(sheet, "ThreadID", id, "Order", idx);
+  });
+  bumpLastModified_();
+}
+
+/**
+ * Persists a new sub-thread horizontal display order (within a single
+ * thread) after a drag-and-drop reorder in the UI. orderedSubThreadIds is
+ * the full list of SubThreadIDs for that one thread, in their new order.
+ */
+function reorderSubThreads(orderedSubThreadIds) {
+  const sheet = getSheet_(SHEET_NAMES.SUBTHREADS);
+  orderedSubThreadIds.forEach(function (id, idx) {
+    updateCell_(sheet, "SubThreadID", id, "Order", idx);
   });
   bumpLastModified_();
 }
