@@ -8,25 +8,28 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #0F39A9;
-    --paper-raised: #1974D2;
-    --ink: #F5F8FF;
-    --ink-soft: #CBDCF7;
-    --ink-faint: #A9C4EE;
-    --thread: #FFFFFF;
-    --thread-light: rgba(255, 255, 255, 0.35);
-    --amber: #FFC24B;
-    --amber-soft: rgba(255, 194, 75, 0.18);
-    --line: rgba(255, 255, 255, 0.18);
-    --done: #4ADE80;
-    --danger: #FF7A7A;
+    --paper: #071B45;
+    --paper-raised: #EAF2FC;
+    --paper-recessed: #D9E6F8;
+    --ink: #0B2A5B;
+    --ink-faint: #6683AD;
+    --canvas-ink: #EAF2FC;
+    --canvas-ink-faint: rgba(234, 242, 252, 0.6);
+    --thread: #0B2A5B;
+    --thread-light: rgba(11, 42, 91, 0.3);
+    --amber: #B8722E;
+    --amber-soft: rgba(184, 114, 46, 0.16);
+    --line: rgba(11, 42, 91, 0.14);
+    --canvas-line: rgba(234, 242, 252, 0.28);
+    --done: #2FA36B;
+    --danger: #B0554A;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     background: var(--paper);
-    color: var(--ink);
+    color: var(--canvas-ink);
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
     padding: 0 0 80px 0;
@@ -79,7 +82,7 @@
   .breadcrumb {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    color: var(--ink-faint);
+    color: var(--canvas-ink-faint);
     letter-spacing: 0.05em;
     text-transform: uppercase;
     margin-bottom: 10px;
@@ -88,12 +91,12 @@
     font-family: 'Fraunces', serif;
     font-size: 40px;
     font-weight: 500;
-    color: var(--ink);
+    color: var(--canvas-ink);
     letter-spacing: -0.01em;
     margin-bottom: 6px;
   }
   .page-meta {
-    color: var(--ink-soft);
+    color: var(--canvas-ink-faint);
     font-size: 14px;
     display: flex;
     gap: 18px;
@@ -162,7 +165,7 @@
     border-radius: 5px;
     cursor: pointer;
   }
-  .icon-btn:hover { color: var(--danger); background: var(--paper); }
+  .icon-btn:hover { color: var(--danger); background: var(--paper-recessed); }
 
   .thread-body { display: none; }
   .thread.open .thread-body { display: block; }
@@ -191,7 +194,7 @@
   }
 
   .subthread {
-    background: var(--paper);
+    background: var(--paper-recessed);
     border: 1px solid var(--line);
     border-radius: 12px;
     width: 260px;
@@ -342,10 +345,10 @@
   .add-subthread-col:hover { color: var(--amber); border-color: var(--amber); }
 
   .add-thread-card {
-    border: 1.5px dashed var(--line);
+    border: 1.5px dashed var(--canvas-line);
     border-radius: 14px;
     padding: 18px 22px;
-    color: var(--ink-faint);
+    color: var(--canvas-ink-faint);
     font-size: 14.5px;
     display: flex;
     align-items: center;
@@ -369,7 +372,7 @@
     margin: 30px auto 0;
     padding: 0 32px;
     font-size: 12.5px;
-    color: var(--ink-faint);
+    color: var(--canvas-ink-faint);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -377,7 +380,7 @@
   .footnote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
 
   .empty-state {
-    color: var(--ink-faint);
+    color: var(--canvas-ink-faint);
     font-size: 14px;
     padding: 20px 4px;
   }
@@ -391,8 +394,8 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     font-weight: 600;
-    color: var(--paper);
-    background: var(--thread);
+    color: var(--paper-raised);
+    background: var(--ink);
     width: 22px;
     height: 22px;
     border-radius: 50%;
