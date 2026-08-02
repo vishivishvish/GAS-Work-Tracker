@@ -208,6 +208,19 @@ function getLastModified() {
   return found ? Number(found.row[found.headers.indexOf("Value")]) || 0 : 0;
 }
 
+/**
+ * Sheets auto-detects date-looking text (e.g. "2026-08-02") typed into a
+ * cell and silently stores it as a real Date value instead of a string.
+ * A raw Date nested inside the board's arrays can break google.script.run's
+ * client-side serialization (it silently delivers null instead of an error),
+ * so every date field is normalized to a plain string before being returned.
+ */
+function formatDateValue_(val) {
+  if (!val) return "";
+  if (val instanceof Date) return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  return String(val);
+}
+
 // ---- Read: the whole board, nested and ready to render ----
 
 function getBoardData() {
@@ -242,14 +255,14 @@ function getBoardData() {
               text: i.Text,
               checked: !!i.Checked,
               owner: i.Owner || "",
-              date: i.Date || "",
+              date: formatDateValue_(i.Date),
             };
           });
         return {
           subThreadId: s.SubThreadID,
           name: s.Name,
           tag: s.Tag || "",
-          dateOpened: s.DateOpened || "",
+          dateOpened: formatDateValue_(s.DateOpened),
           collapsed: !!s.Collapsed,
           items: its,
         };
@@ -257,7 +270,7 @@ function getBoardData() {
     return {
       threadId: t.ThreadID,
       name: t.Name,
-      dateOpened: t.DateOpened || "",
+      dateOpened: formatDateValue_(t.DateOpened),
       collapsed: !!t.Collapsed,
       subthreads: subs,
     };

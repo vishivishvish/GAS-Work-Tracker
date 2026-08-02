@@ -598,7 +598,7 @@
     setSyncing(true);
     google.script.run
       .withSuccessHandler(function (data) {
-        boardData = data;
+        if (data) boardData = data;
         renderBoard();
         setSyncing(false);
       })
@@ -612,7 +612,7 @@
   function pollForUpdates() {
     google.script.run
       .withSuccessHandler(function (ts) {
-        if (ts !== boardData.lastModified) loadBoard();
+        if (ts != null && ts !== boardData.lastModified) loadBoard();
       })
       .withFailureHandler(function (err) { console.error(err); })
       .getLastModified();
