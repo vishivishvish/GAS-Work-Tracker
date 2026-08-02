@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Vishnu's Landscape Work Tracker</title>
+<title>Vishnu's Landscape</title>
 <base target="_top">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -425,13 +425,49 @@
     color: var(--ink-faint);
     margin-top: 2px;
   }
+
+  .subthread-header[draggable="true"] { cursor: grab; }
+  .subthread-header[draggable="true"]:active { cursor: grabbing; }
+  .subthread.dragging { opacity: 0.5; }
+  .subthread.sub-drag-over { outline: 2px dashed var(--amber); outline-offset: 2px; }
+
+  .thread-color-wrap { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+  .thread-color-btn {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .color-popover {
+    position: absolute;
+    top: 24px;
+    right: 0;
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    z-index: 60;
+  }
+  .color-popover.open { display: grid; }
+  .color-swatch {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1.5px solid rgba(0,0,0,0.15);
+  }
+  .color-swatch.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>
 </head>
 <body>
 
   <div class="topbar">
     <div class="brand">
-      <span class="brand-mark">Vishnu's Landscape Work Tracker</span>
+      <span class="brand-mark">Vishnu's Landscape</span>
       <span class="brand-sub">Great Learning Workspace</span>
     </div>
     <div class="sync-chip">
@@ -441,7 +477,7 @@
   </div>
 
   <div class="page-header">
-    <div class="breadcrumb">Vishnu's Landscape Work Tracker / All Threads</div>
+    <div class="breadcrumb">Vishnu's Landscape / All Threads</div>
     <div class="page-title">All Threads</div>
     <div class="page-meta" id="pageMeta">
       <span id="metaThreadCount">0 threads</span>
@@ -464,6 +500,22 @@
 <script>
   var boardData = { board: [], lastModified: 0 };
   var pollTimer = null;
+
+  // Hardcoded light-color palette for threads. Each key maps to the full set
+  // of card/text colors that swap in together via CSS custom properties
+  // scoped to that thread's own element, so everything nested inside
+  // (sub-thread cards, text, dots, connectors) re-themes automatically.
+  var THREAD_COLORS = {
+    blue:     { raised: "#EAF2FC", recessed: "#D9E6F8", ink: "#0B2A5B", inkFaint: "#6683AD", line: "rgba(11,42,91,0.14)",   accent: "#0B2A5B", accentLight: "rgba(11,42,91,0.3)" },
+    red:      { raised: "#FCEAEA", recessed: "#F8D9D9", ink: "#7A1F1F", inkFaint: "#B06666", line: "rgba(122,31,31,0.14)",  accent: "#7A1F1F", accentLight: "rgba(122,31,31,0.3)" },
+    green:    { raised: "#EAFCF0", recessed: "#D9F8E3", ink: "#145A32", inkFaint: "#5FA37F", line: "rgba(20,90,50,0.14)",   accent: "#145A32", accentLight: "rgba(20,90,50,0.3)" },
+    yellow:   { raised: "#FCF8EA", recessed: "#F8EFD9", ink: "#7A5D0B", inkFaint: "#B39B66", line: "rgba(122,93,11,0.14)",  accent: "#7A5D0B", accentLight: "rgba(122,93,11,0.3)" },
+    gray:     { raised: "#F1F2F4", recessed: "#E3E5E9", ink: "#3A3F47", inkFaint: "#7D838C", line: "rgba(58,63,71,0.14)",   accent: "#3A3F47", accentLight: "rgba(58,63,71,0.3)" },
+    lavender: { raised: "#F1EAFC", recessed: "#E3D9F8", ink: "#4B2A7A", inkFaint: "#8E76B0", line: "rgba(75,42,122,0.14)",  accent: "#4B2A7A", accentLight: "rgba(75,42,122,0.3)" },
+    lilac:    { raised: "#F8EAFC", recessed: "#F0D9F8", ink: "#6A2A6E", inkFaint: "#A876AC", line: "rgba(106,42,110,0.14)", accent: "#6A2A6E", accentLight: "rgba(106,42,110,0.3)" },
+    orange:   { raised: "#FCF0EA", recessed: "#F8E1D9", ink: "#8A3A0B", inkFaint: "#C08F66", line: "rgba(138,58,11,0.14)",  accent: "#8A3A0B", accentLight: "rgba(138,58,11,0.3)" }
+  };
+  var THREAD_COLOR_ORDER = ["blue", "red", "green", "yellow", "gray", "lavender", "lilac", "orange"];
 
   function escapeHtml(str) {
     return String(str == null ? "" : str)
@@ -526,8 +578,24 @@
     var subsHtml = t.subthreads.map(renderSubthread).join('<div class="subthread-connector"></div>');
     if (t.subthreads.length > 0) subsHtml += '<div class="subthread-connector"></div>';
 
+    var colorKey = t.color || "blue";
+    var palette = THREAD_COLORS[colorKey] || THREAD_COLORS.blue;
+    var themeStyle =
+      '--paper-raised:' + palette.raised + ';' +
+      '--paper-recessed:' + palette.recessed + ';' +
+      '--ink:' + palette.ink + ';' +
+      '--ink-faint:' + palette.inkFaint + ';' +
+      '--line:' + palette.line + ';' +
+      '--thread:' + palette.accent + ';' +
+      '--thread-light:' + palette.accentLight + ';';
+
+    var swatchesHtml = THREAD_COLOR_ORDER.map(function (key) {
+      var p = THREAD_COLORS[key];
+      return '<span class="color-swatch' + (key === colorKey ? " selected" : "") + '" data-action="set-thread-color" data-thread-id="' + t.threadId + '" data-color="' + key + '" style="background:' + p.accent + ';" title="' + key + '"></span>';
+    }).join("");
+
     return (
-      '<div class="thread' + (t.collapsed ? "" : " open") + '" data-thread-id="' + t.threadId + '">' +
+      '<div class="thread' + (t.collapsed ? "" : " open") + '" data-thread-id="' + t.threadId + '" style="' + themeStyle + '">' +
         '<div class="thread-header" draggable="true" data-action="toggle-thread" data-thread-id="' + t.threadId + '">' +
           '<span class="chevron">▶</span>' +
           '<span class="thread-number">' + num + '</span>' +
@@ -538,6 +606,10 @@
           '<div class="thread-progress">' +
             '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
             '<span class="progress-label">' + done + "/" + total + "</span>" +
+          "</div>" +
+          '<div class="thread-color-wrap">' +
+            '<span class="thread-color-btn" data-action="toggle-color-picker" data-thread-id="' + t.threadId + '" style="background:' + palette.accent + ';" title="Thread color"></span>' +
+            '<div class="color-popover" data-color-popover="' + t.threadId + '">' + swatchesHtml + "</div>" +
           "</div>" +
           '<span class="icon-btn" data-action="delete-thread" data-thread-id="' + t.threadId + '" title="Delete thread">✕</span>' +
         "</div>" +
@@ -555,7 +627,7 @@
     var itemsHtml = s.items.map(function (i) { return renderItem(i, s.subThreadId); }).join("");
     return (
       '<div class="subthread' + (s.collapsed ? "" : " open") + '" data-subthread-id="' + s.subThreadId + '">' +
-        '<div class="subthread-header" data-action="toggle-subthread" data-subthread-id="' + s.subThreadId + '">' +
+        '<div class="subthread-header" draggable="true" data-action="toggle-subthread" data-subthread-id="' + s.subThreadId + '">' +
           '<span class="subthread-dot"></span>' +
           '<div class="subthread-titlewrap" data-action="rename-subthread" data-subthread-id="' + s.subThreadId + '">' +
             '<div class="subthread-name">' + escapeHtml(s.name) + "</div>" +
@@ -653,6 +725,17 @@
         setSyncing(true);
         google.script.run.withSuccessHandler(loadBoard).renameThread(tid, newName, newDate);
       }
+    } else if (action === "toggle-color-picker") {
+      var popover = document.querySelector('[data-color-popover="' + el.getAttribute("data-thread-id") + '"]');
+      var wasOpen = popover && popover.classList.contains("open");
+      document.querySelectorAll(".color-popover.open").forEach(function (p) { p.classList.remove("open"); });
+      if (popover && !wasOpen) popover.classList.add("open");
+    } else if (action === "set-thread-color") {
+      var colorThreadId = el.getAttribute("data-thread-id");
+      var color = el.getAttribute("data-color");
+      document.querySelectorAll(".color-popover.open").forEach(function (p) { p.classList.remove("open"); });
+      setSyncing(true);
+      google.script.run.withSuccessHandler(loadBoard).setThreadColor(colorThreadId, color);
     } else if (action === "delete-thread") {
       var tid2 = el.getAttribute("data-thread-id");
       if (confirm("Delete this thread and everything in it?")) {
@@ -727,14 +810,35 @@
     }
   });
 
-  // ---- Thread drag-and-drop reordering ----
+  // Close any open thread-color popover when clicking outside it.
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".thread-color-wrap")) return;
+    document.querySelectorAll(".color-popover.open").forEach(function (p) { p.classList.remove("open"); });
+  });
+
+  // ---- Thread / sub-thread drag-and-drop reordering ----
 
   var draggedThreadId = null;
+  var draggedSubThreadId = null;
+  var draggedSubThreadParentId = null;
   var boardEl = document.getElementById("container");
 
   boardEl.addEventListener("dragstart", function (e) {
-    var threadEl = e.target.closest(".thread");
-    if (!threadEl) return;
+    var subHeaderEl = e.target.closest(".subthread-header");
+    if (subHeaderEl) {
+      var subEl = subHeaderEl.closest(".subthread");
+      var parentThreadEl = subHeaderEl.closest(".thread");
+      draggedSubThreadId = subEl.getAttribute("data-subthread-id");
+      draggedSubThreadParentId = parentThreadEl ? parentThreadEl.getAttribute("data-thread-id") : null;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", draggedSubThreadId);
+      subEl.classList.add("dragging");
+      e.stopPropagation();
+      return;
+    }
+    var threadHeaderEl = e.target.closest(".thread-header");
+    if (!threadHeaderEl) return;
+    var threadEl = threadHeaderEl.closest(".thread");
     draggedThreadId = threadEl.getAttribute("data-thread-id");
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", draggedThreadId);
@@ -744,11 +848,29 @@
   boardEl.addEventListener("dragend", function (e) {
     var threadEl = e.target.closest(".thread");
     if (threadEl) threadEl.classList.remove("dragging");
+    var subEl = e.target.closest(".subthread");
+    if (subEl) subEl.classList.remove("dragging");
     document.querySelectorAll(".thread.drag-over").forEach(function (el2) { el2.classList.remove("drag-over"); });
+    document.querySelectorAll(".subthread.sub-drag-over").forEach(function (el2) { el2.classList.remove("sub-drag-over"); });
     draggedThreadId = null;
+    draggedSubThreadId = null;
+    draggedSubThreadParentId = null;
   });
 
   boardEl.addEventListener("dragover", function (e) {
+    if (draggedSubThreadId) {
+      var subTarget = e.target.closest(".subthread");
+      if (!subTarget) return;
+      var subTargetParent = subTarget.closest(".thread");
+      if (!subTargetParent || subTargetParent.getAttribute("data-thread-id") !== draggedSubThreadParentId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (subTarget.getAttribute("data-subthread-id") !== draggedSubThreadId) {
+        subTarget.classList.add("sub-drag-over");
+      }
+      e.stopPropagation();
+      return;
+    }
     var threadEl = e.target.closest(".thread");
     if (!threadEl || !draggedThreadId) return;
     e.preventDefault();
@@ -759,11 +881,50 @@
   });
 
   boardEl.addEventListener("dragleave", function (e) {
+    if (draggedSubThreadId) {
+      var subTarget = e.target.closest(".subthread");
+      if (subTarget) subTarget.classList.remove("sub-drag-over");
+      return;
+    }
     var threadEl = e.target.closest(".thread");
     if (threadEl) threadEl.classList.remove("drag-over");
   });
 
   boardEl.addEventListener("drop", function (e) {
+    if (draggedSubThreadId) {
+      var subTargetEl = e.target.closest(".subthread");
+      document.querySelectorAll(".subthread.sub-drag-over").forEach(function (el2) { el2.classList.remove("sub-drag-over"); });
+      var fromSubId = draggedSubThreadId, fromParentId = draggedSubThreadParentId;
+      draggedSubThreadId = null;
+      draggedSubThreadParentId = null;
+      if (!subTargetEl) return;
+      e.preventDefault();
+      var targetSubId = subTargetEl.getAttribute("data-subthread-id");
+      var targetParentEl = subTargetEl.closest(".thread");
+      if (!targetParentEl || targetParentEl.getAttribute("data-thread-id") !== fromParentId) return;
+      if (targetSubId === fromSubId) return;
+
+      var thread = (boardData.board || []).filter(function (t) { return t.threadId === fromParentId; })[0];
+      if (!thread) return;
+      var subIds = thread.subthreads.map(function (s) { return s.subThreadId; });
+      var fromIdx = subIds.indexOf(fromSubId);
+      if (fromIdx === -1) return;
+
+      var subRect = subTargetEl.getBoundingClientRect();
+      var insertSubAfter = (e.clientX - subRect.left) > subRect.width / 2;
+
+      subIds.splice(fromIdx, 1);
+      var toSubIdx = subIds.indexOf(targetSubId);
+      subIds.splice(insertSubAfter ? toSubIdx + 1 : toSubIdx, 0, fromSubId);
+
+      setSyncing(true);
+      google.script.run
+        .withSuccessHandler(loadBoard)
+        .withFailureHandler(function (err) { console.error(err); loadBoard(); })
+        .reorderSubThreads(subIds);
+      return;
+    }
+
     var targetEl = e.target.closest(".thread");
     document.querySelectorAll(".thread.drag-over").forEach(function (el2) { el2.classList.remove("drag-over"); });
     if (!targetEl || !draggedThreadId) return;
