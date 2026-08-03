@@ -40,7 +40,9 @@ one place that should always reflect what the app actually does today.
   item assigned to them across all threads/sub-threads, with the source
   thread name and tag shown for context. Items can be checked off directly
   from this view. Computed entirely client-side from the already-loaded
-  board data - no extra backend call.
+  board data - no extra backend call. Each person's card is collapsible
+  (same chevron pattern as threads), though the open/closed state resets on
+  reload since there's no "owner" row in the Sheet to persist it against.
 - **Live polling** - the UI polls `getLastModified()` every 5 seconds and
   only re-fetches the full board when it's actually changed, so multiple
   open tabs (or direct Sheet edits, with the installable trigger) stay in
@@ -165,3 +167,9 @@ alongside each item for context. Checking an item off here calls the same
 gets marked done everywhere else) immediately. This view is computed
 entirely in the browser from the board data already loaded for the main
 tab - no extra call to the backend.
+
+Each person's card has a chevron and collapses/expands the same way a
+thread does. Unlike thread/sub-thread collapse state, this isn't persisted
+to the Sheet - there's no "owner" row to store it against, since owners are
+derived from item data rather than being their own entity - so it resets to
+all-open on the next page load.
