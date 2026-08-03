@@ -20,6 +20,7 @@
     --amber: #B8722E;
     --amber-soft: rgba(184, 114, 46, 0.16);
     --line: rgba(11, 42, 91, 0.14);
+    --tag: #B8722E;
     --canvas-line: rgba(234, 242, 252, 0.28);
     --done: #2FA36B;
     --danger: #B0554A;
@@ -229,7 +230,7 @@
   .subthread-tag {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9.5px;
-    color: var(--amber);
+    color: var(--tag);
     letter-spacing: 0.02em;
     margin-top: 2px;
     display: block;
@@ -444,8 +445,11 @@
     top: 24px;
     right: 0;
     display: none;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 6px;
+    width: 168px;
+    max-height: 220px;
+    overflow-y: auto;
     background: var(--paper-raised);
     border: 1px solid var(--line);
     border-radius: 10px;
@@ -461,6 +465,102 @@
     border: 1.5px solid rgba(0,0,0,0.15);
   }
   .color-swatch.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-top: 18px;
+    border-bottom: 1px solid var(--canvas-line);
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--canvas-ink-faint);
+    padding: 9px 4px 11px;
+    margin-right: 22px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn:hover { color: var(--canvas-ink); }
+  .tab-btn.active { color: var(--canvas-ink); border-bottom-color: var(--amber); }
+
+  .person-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,41,55,0.04);
+  }
+  .person-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .person-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper-raised);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .person-name {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    flex: 1;
+  }
+  .person-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .person-list { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 14px; }
+  .person-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 7px;
+  }
+  .person-item:hover { background: var(--paper-recessed); }
+  .person-check {
+    width: 16px; height: 16px;
+    border-radius: 5px;
+    border: 1.5px solid var(--line);
+    flex-shrink: 0;
+    margin-top: 2px;
+    cursor: pointer;
+    background: var(--paper-raised);
+  }
+  .person-item-text {
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .person-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+  }
+  .person-item-thread { font-weight: 600; }
+  .person-item-tag { letter-spacing: 0.02em; }
+  .person-item-date { color: var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -477,8 +577,8 @@
   </div>
 
   <div class="page-header">
-    <div class="breadcrumb">Vishnu's Landscape / All Threads</div>
-    <div class="page-title">All Threads</div>
+    <div class="breadcrumb" id="breadcrumbText">Vishnu's Landscape / All Threads</div>
+    <div class="page-title" id="pageTitleText">All Threads</div>
     <div class="page-meta" id="pageMeta">
       <span id="metaThreadCount">0 threads</span>
       <span class="meta-dot">·</span>
@@ -486,9 +586,17 @@
       <span class="meta-dot">·</span>
       <span id="metaUpdated">loading...</span>
     </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="work">Work Tracker</button>
+      <button class="tab-btn" data-tab="people">Threads for Each Person</button>
+    </div>
   </div>
 
   <div class="container" id="container">
+    <div class="empty-state">Loading board…</div>
+  </div>
+
+  <div class="container" id="personContainer" style="display:none;">
     <div class="empty-state">Loading board…</div>
   </div>
 
@@ -501,21 +609,58 @@
   var boardData = { board: [], lastModified: 0 };
   var pollTimer = null;
 
-  // Hardcoded light-color palette for threads. Each key maps to the full set
-  // of card/text colors that swap in together via CSS custom properties
-  // scoped to that thread's own element, so everything nested inside
-  // (sub-thread cards, text, dots, connectors) re-themes automatically.
+  // Hardcoded light-color palette for threads, ordered VIBGYOR (violet through
+  // red, with neutrals at the end). Each entry maps to the full set of
+  // card/text colors that swap in together via CSS custom properties scoped
+  // to that thread's own element, so everything nested inside (sub-thread
+  // cards, text, dots, connectors) re-themes automatically. `tag` is
+  // deliberately a different hue family than `ink` (teal vs. amber) so a
+  // sub-thread's tag label always stays visually distinct from its body text
+  // regardless of which of the 31 colors the thread uses.
+  var THREAD_COLOR_ORDER = [
+    "amethyst", "grape", "wisteria", "lavender", "lilac",
+    "cobalt", "blueberry", "blue", "peacock", "eucalyptus",
+    "green", "basil", "avocado", "pistachio", "sage",
+    "citron", "yellow", "banana", "mango",
+    "tangerine", "pumpkin", "orange",
+    "tomato", "radicchio", "cherryblossom", "flamingo", "red",
+    "gray", "graphite", "cocoa", "birch"
+  ];
+  var TAG_AMBER = "#B8722E";
+  var TAG_TEAL = "#146B72";
   var THREAD_COLORS = {
-    blue:     { raised: "#EAF2FC", recessed: "#D9E6F8", ink: "#0B2A5B", inkFaint: "#6683AD", line: "rgba(11,42,91,0.14)",   accent: "#0B2A5B", accentLight: "rgba(11,42,91,0.3)" },
-    red:      { raised: "#FCEAEA", recessed: "#F8D9D9", ink: "#7A1F1F", inkFaint: "#B06666", line: "rgba(122,31,31,0.14)",  accent: "#7A1F1F", accentLight: "rgba(122,31,31,0.3)" },
-    green:    { raised: "#EAFCF0", recessed: "#D9F8E3", ink: "#145A32", inkFaint: "#5FA37F", line: "rgba(20,90,50,0.14)",   accent: "#145A32", accentLight: "rgba(20,90,50,0.3)" },
-    yellow:   { raised: "#FCF8EA", recessed: "#F8EFD9", ink: "#7A5D0B", inkFaint: "#B39B66", line: "rgba(122,93,11,0.14)",  accent: "#7A5D0B", accentLight: "rgba(122,93,11,0.3)" },
-    gray:     { raised: "#F1F2F4", recessed: "#E3E5E9", ink: "#3A3F47", inkFaint: "#7D838C", line: "rgba(58,63,71,0.14)",   accent: "#3A3F47", accentLight: "rgba(58,63,71,0.3)" },
-    lavender: { raised: "#F1EAFC", recessed: "#E3D9F8", ink: "#4B2A7A", inkFaint: "#8E76B0", line: "rgba(75,42,122,0.14)",  accent: "#4B2A7A", accentLight: "rgba(75,42,122,0.3)" },
-    lilac:    { raised: "#F8EAFC", recessed: "#F0D9F8", ink: "#6A2A6E", inkFaint: "#A876AC", line: "rgba(106,42,110,0.14)", accent: "#6A2A6E", accentLight: "rgba(106,42,110,0.3)" },
-    orange:   { raised: "#FCF0EA", recessed: "#F8E1D9", ink: "#8A3A0B", inkFaint: "#C08F66", line: "rgba(138,58,11,0.14)",  accent: "#8A3A0B", accentLight: "rgba(138,58,11,0.3)" }
+    amethyst:     { label: "Amethyst",       raised: "#F3EAFC", recessed: "#E8D9F8", ink: "#6B2FA0", inkFaint: "#A88FC7", line: "rgba(107,47,160,0.14)",  accent: "#6B2FA0", accentLight: "rgba(107,47,160,0.3)",  tag: TAG_AMBER },
+    grape:        { label: "Grape",          raised: "#F1E5F7", recessed: "#E4CCF0", ink: "#5B1A6B", inkFaint: "#9B76A8", line: "rgba(91,26,107,0.14)",   accent: "#5B1A6B", accentLight: "rgba(91,26,107,0.3)",   tag: TAG_AMBER },
+    wisteria:     { label: "Wisteria",        raised: "#F2ECFA", recessed: "#E5D9F5", ink: "#6E4A9E", inkFaint: "#A896C4", line: "rgba(110,74,158,0.14)",  accent: "#6E4A9E", accentLight: "rgba(110,74,158,0.3)",  tag: TAG_AMBER },
+    lavender:     { label: "Lavender",        raised: "#F1EAFC", recessed: "#E3D9F8", ink: "#4B2A7A", inkFaint: "#8E76B0", line: "rgba(75,42,122,0.14)",   accent: "#4B2A7A", accentLight: "rgba(75,42,122,0.3)",   tag: TAG_AMBER },
+    lilac:        { label: "Lilac",           raised: "#F8EAFC", recessed: "#F0D9F8", ink: "#6A2A6E", inkFaint: "#A876AC", line: "rgba(106,42,110,0.14)",  accent: "#6A2A6E", accentLight: "rgba(106,42,110,0.3)",  tag: TAG_AMBER },
+    cobalt:       { label: "Cobalt",          raised: "#E8EDFC", recessed: "#D3DEF8", ink: "#1B3A8A", inkFaint: "#6E7EB8", line: "rgba(27,58,138,0.14)",   accent: "#1B3A8A", accentLight: "rgba(27,58,138,0.3)",   tag: TAG_AMBER },
+    blueberry:    { label: "Blueberry",       raised: "#ECEBF9", recessed: "#DAD8F3", ink: "#3D3B7A", inkFaint: "#8482B0", line: "rgba(61,59,122,0.14)",   accent: "#3D3B7A", accentLight: "rgba(61,59,122,0.3)",   tag: TAG_AMBER },
+    blue:         { label: "Blue",            raised: "#EAF2FC", recessed: "#D9E6F8", ink: "#0B2A5B", inkFaint: "#6683AD", line: "rgba(11,42,91,0.14)",    accent: "#0B2A5B", accentLight: "rgba(11,42,91,0.3)",    tag: TAG_AMBER },
+    peacock:      { label: "Peacock",         raised: "#E8F7F8", recessed: "#D2F0F2", ink: "#0E6E7C", inkFaint: "#63A3AC", line: "rgba(14,110,124,0.14)",  accent: "#0E6E7C", accentLight: "rgba(14,110,124,0.3)",  tag: TAG_AMBER },
+    eucalyptus:   { label: "Eucalyptus",      raised: "#EAF7F3", recessed: "#D5F0E8", ink: "#2E7D6B", inkFaint: "#7BAEA0", line: "rgba(46,125,107,0.14)",  accent: "#2E7D6B", accentLight: "rgba(46,125,107,0.3)",  tag: TAG_AMBER },
+    green:        { label: "Green",           raised: "#EAFCF0", recessed: "#D9F8E3", ink: "#145A32", inkFaint: "#5FA37F", line: "rgba(20,90,50,0.14)",    accent: "#145A32", accentLight: "rgba(20,90,50,0.3)",    tag: TAG_AMBER },
+    basil:        { label: "Basil",           raised: "#E9F5EC", recessed: "#D3EBD9", ink: "#1F4D2B", inkFaint: "#6C9678", line: "rgba(31,77,43,0.14)",    accent: "#1F4D2B", accentLight: "rgba(31,77,43,0.3)",    tag: TAG_AMBER },
+    avocado:      { label: "Avocado",         raised: "#F3F7E9", recessed: "#E7EFD2", ink: "#55701F", inkFaint: "#9AAD6E", line: "rgba(85,112,31,0.14)",   accent: "#55701F", accentLight: "rgba(85,112,31,0.3)",   tag: TAG_AMBER },
+    pistachio:    { label: "Pistachio",       raised: "#EFF7EC", recessed: "#DFF0D8", ink: "#4C7A3C", inkFaint: "#8FB07F", line: "rgba(76,122,60,0.14)",   accent: "#4C7A3C", accentLight: "rgba(76,122,60,0.3)",   tag: TAG_AMBER },
+    sage:         { label: "Sage",            raised: "#F0F3EC", recessed: "#E1E7D9", ink: "#5E6E52", inkFaint: "#9DA890", line: "rgba(94,110,82,0.14)",   accent: "#5E6E52", accentLight: "rgba(94,110,82,0.3)",   tag: TAG_AMBER },
+    citron:       { label: "Citron",          raised: "#FAFAE9", recessed: "#F4F4D2", ink: "#7A7A0B", inkFaint: "#B3B366", line: "rgba(122,122,11,0.14)",  accent: "#7A7A0B", accentLight: "rgba(122,122,11,0.3)",  tag: TAG_TEAL },
+    yellow:       { label: "Yellow",          raised: "#FCF8EA", recessed: "#F8EFD9", ink: "#7A5D0B", inkFaint: "#B39B66", line: "rgba(122,93,11,0.14)",   accent: "#7A5D0B", accentLight: "rgba(122,93,11,0.3)",   tag: TAG_TEAL },
+    banana:       { label: "Banana",          raised: "#FCFAEA", recessed: "#F8F3D3", ink: "#8A7A1F", inkFaint: "#BDAF6E", line: "rgba(138,122,31,0.14)",  accent: "#8A7A1F", accentLight: "rgba(138,122,31,0.3)",  tag: TAG_TEAL },
+    mango:        { label: "Mango",           raised: "#FCF3EA", recessed: "#F8E6D3", ink: "#8A5A0B", inkFaint: "#BD9966", line: "rgba(138,90,11,0.14)",   accent: "#8A5A0B", accentLight: "rgba(138,90,11,0.3)",   tag: TAG_TEAL },
+    tangerine:    { label: "Tangerine",       raised: "#FCF0E5", recessed: "#F8E0CC", ink: "#8A4A0B", inkFaint: "#BD8C66", line: "rgba(138,74,11,0.14)",   accent: "#8A4A0B", accentLight: "rgba(138,74,11,0.3)",   tag: TAG_TEAL },
+    pumpkin:      { label: "Pumpkin",         raised: "#FCEEE5", recessed: "#F8DCCB", ink: "#8A3E0B", inkFaint: "#BD8466", line: "rgba(138,62,11,0.14)",   accent: "#8A3E0B", accentLight: "rgba(138,62,11,0.3)",   tag: TAG_TEAL },
+    orange:       { label: "Orange",          raised: "#FCF0EA", recessed: "#F8E1D9", ink: "#8A3A0B", inkFaint: "#C08F66", line: "rgba(138,58,11,0.14)",   accent: "#8A3A0B", accentLight: "rgba(138,58,11,0.3)",   tag: TAG_TEAL },
+    tomato:       { label: "Tomato",          raised: "#FCEBE5", recessed: "#F8D6CC", ink: "#8A2A0B", inkFaint: "#BD7666", line: "rgba(138,42,11,0.14)",   accent: "#8A2A0B", accentLight: "rgba(138,42,11,0.3)",   tag: TAG_TEAL },
+    radicchio:    { label: "Radicchio",       raised: "#F8E8EC", recessed: "#F0D1D9", ink: "#6E1A2E", inkFaint: "#AD7181", line: "rgba(110,26,46,0.14)",   accent: "#6E1A2E", accentLight: "rgba(110,26,46,0.3)",   tag: TAG_TEAL },
+    cherryblossom:{ label: "Cherry Blossom",  raised: "#FCEEF3", recessed: "#F8DCE7", ink: "#8A3A5E", inkFaint: "#BD8FA5", line: "rgba(138,58,94,0.14)",   accent: "#8A3A5E", accentLight: "rgba(138,58,94,0.3)",   tag: TAG_TEAL },
+    flamingo:     { label: "Flamingo",        raised: "#FCF0F1", recessed: "#F8E1E3", ink: "#8A4A5A", inkFaint: "#BD97A0", line: "rgba(138,74,90,0.14)",   accent: "#8A4A5A", accentLight: "rgba(138,74,90,0.3)",   tag: TAG_TEAL },
+    red:          { label: "Red",             raised: "#FCEAEA", recessed: "#F8D9D9", ink: "#7A1F1F", inkFaint: "#B06666", line: "rgba(122,31,31,0.14)",   accent: "#7A1F1F", accentLight: "rgba(122,31,31,0.3)",   tag: TAG_TEAL },
+    gray:         { label: "Gray",            raised: "#F1F2F4", recessed: "#E3E5E9", ink: "#3A3F47", inkFaint: "#7D838C", line: "rgba(58,63,71,0.14)",    accent: "#3A3F47", accentLight: "rgba(58,63,71,0.3)",    tag: TAG_AMBER },
+    graphite:     { label: "Graphite",        raised: "#EDEEF0", recessed: "#DBDDE1", ink: "#2A2E33", inkFaint: "#74787D", line: "rgba(42,46,51,0.14)",    accent: "#2A2E33", accentLight: "rgba(42,46,51,0.3)",    tag: TAG_AMBER },
+    cocoa:        { label: "Cocoa",           raised: "#F5EFEA", recessed: "#EBDFD5", ink: "#5A3A24", inkFaint: "#A38670", line: "rgba(90,58,36,0.14)",    accent: "#5A3A24", accentLight: "rgba(90,58,36,0.3)",    tag: TAG_TEAL },
+    birch:        { label: "Birch",           raised: "#F7F3EE", recessed: "#EFE7DC", ink: "#6E5A42", inkFaint: "#ABA08D", line: "rgba(110,90,66,0.14)",   accent: "#6E5A42", accentLight: "rgba(110,90,66,0.3)",   tag: TAG_TEAL }
   };
-  var THREAD_COLOR_ORDER = ["blue", "red", "green", "yellow", "gray", "lavender", "lilac", "orange"];
 
   function escapeHtml(str) {
     return String(str == null ? "" : str)
@@ -586,12 +731,13 @@
       '--ink:' + palette.ink + ';' +
       '--ink-faint:' + palette.inkFaint + ';' +
       '--line:' + palette.line + ';' +
+      '--tag:' + palette.tag + ';' +
       '--thread:' + palette.accent + ';' +
       '--thread-light:' + palette.accentLight + ';';
 
     var swatchesHtml = THREAD_COLOR_ORDER.map(function (key) {
       var p = THREAD_COLORS[key];
-      return '<span class="color-swatch' + (key === colorKey ? " selected" : "") + '" data-action="set-thread-color" data-thread-id="' + t.threadId + '" data-color="' + key + '" style="background:' + p.accent + ';" title="' + key + '"></span>';
+      return '<span class="color-swatch' + (key === colorKey ? " selected" : "") + '" data-action="set-thread-color" data-thread-id="' + t.threadId + '" data-color="' + key + '" style="background:' + p.accent + ';" title="' + p.label + '"></span>';
     }).join("");
 
     return (
@@ -608,7 +754,7 @@
             '<span class="progress-label">' + done + "/" + total + "</span>" +
           "</div>" +
           '<div class="thread-color-wrap">' +
-            '<span class="thread-color-btn" data-action="toggle-color-picker" data-thread-id="' + t.threadId + '" style="background:' + palette.accent + ';" title="Thread color"></span>' +
+            '<span class="thread-color-btn" data-action="toggle-color-picker" data-thread-id="' + t.threadId + '" style="background:' + palette.accent + ';" title="Thread color: ' + palette.label + '"></span>' +
             '<div class="color-popover" data-color-popover="' + t.threadId + '">' + swatchesHtml + "</div>" +
           "</div>" +
           '<span class="icon-btn" data-action="delete-thread" data-thread-id="' + t.threadId + '" title="Delete thread">✕</span>' +
@@ -664,6 +810,112 @@
     );
   }
 
+  // ---- Threads for Each Person (pivoted view, computed client-side from
+  // the same boardData - no separate backend call needed) ----
+
+  function initialsFor(name) {
+    var parts = String(name).trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function computePersonMap(board) {
+    var map = {};
+    board.forEach(function (t) {
+      var palette = THREAD_COLORS[t.color || "blue"] || THREAD_COLORS.blue;
+      t.subthreads.forEach(function (s) {
+        s.items.forEach(function (i) {
+          if (i.checked) return;
+          var owner = (i.owner || "").trim();
+          if (!owner) return;
+          if (!map[owner]) map[owner] = [];
+          map[owner].push({
+            itemId: i.itemId,
+            text: i.text,
+            date: i.date,
+            threadName: t.name,
+            threadInk: palette.ink,
+            threadTag: palette.tag,
+            subThreadTag: s.tag
+          });
+        });
+      });
+    });
+    return map;
+  }
+
+  function renderPersonItem(e) {
+    return (
+      '<div class="person-item" data-item-id="' + e.itemId + '">' +
+        '<div class="person-check" data-action="toggle-item" data-item-id="' + e.itemId + '"></div>' +
+        '<div style="flex:1; min-width:0;">' +
+          '<div class="person-item-text">' + escapeHtml(e.text) + "</div>" +
+          '<div class="person-item-meta">' +
+            '<span class="person-item-thread" style="color:' + e.threadInk + ';">' + escapeHtml(e.threadName) + "</span>" +
+            (e.subThreadTag ? '<span class="person-item-tag" style="color:' + e.threadTag + ';">' + escapeHtml(e.subThreadTag) + "</span>" : "") +
+            (e.date ? '<span class="person-item-date">' + escapeHtml(e.date) + "</span>" : "") +
+          "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderPersonCard(owner, entries) {
+    return (
+      '<div class="person-card">' +
+        '<div class="person-card-header">' +
+          '<span class="person-avatar">' + initialsFor(owner) + "</span>" +
+          '<span class="person-name">' + escapeHtml(owner) + "</span>" +
+          '<span class="person-count">' + entries.length + (entries.length === 1 ? " open item" : " open items") + "</span>" +
+        "</div>" +
+        '<div class="person-list">' + entries.map(renderPersonItem).join("") + "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderPersonBoard() {
+    var container = document.getElementById("personContainer");
+    var map = computePersonMap(boardData.board || []);
+    var owners = Object.keys(map).sort(function (a, b) { return a.localeCompare(b); });
+    if (owners.length === 0) {
+      container.innerHTML = '<div class="empty-state">No open items with an owner assigned yet.</div>';
+      return;
+    }
+    container.innerHTML = owners.map(function (owner) { return renderPersonCard(owner, map[owner]); }).join("");
+  }
+
+  // ---- Tab switching ----
+
+  var activeTab = "work";
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll(".tab-btn").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+    });
+    document.getElementById("container").style.display = tab === "work" ? "" : "none";
+    document.getElementById("personContainer").style.display = tab === "people" ? "" : "none";
+    document.getElementById("breadcrumbText").textContent = tab === "work"
+      ? "Vishnu's Landscape / All Threads"
+      : "Vishnu's Landscape / Threads for Each Person";
+    document.getElementById("pageTitleText").textContent = tab === "work" ? "All Threads" : "Threads for Each Person";
+  }
+
+  document.querySelectorAll(".tab-btn").forEach(function (b) {
+    b.addEventListener("click", function () { setActiveTab(b.getAttribute("data-tab")); });
+  });
+
+  document.getElementById("personContainer").addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el || el.getAttribute("data-action") !== "toggle-item") return;
+    var itemId = el.getAttribute("data-item-id");
+    setSyncing(true);
+    google.script.run
+      .withSuccessHandler(loadBoard)
+      .withFailureHandler(function (err) { console.error(err); loadBoard(); })
+      .toggleItem(itemId);
+  });
+
   // ---- Data load / poll ----
 
   function loadBoard() {
@@ -672,6 +924,7 @@
       .withSuccessHandler(function (data) {
         if (data) boardData = data;
         renderBoard();
+        renderPersonBoard();
         setSyncing(false);
       })
       .withFailureHandler(function (err) {

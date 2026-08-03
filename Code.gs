@@ -56,8 +56,17 @@ const SHEET_NAMES = {
 };
 
 // Allowed thread colors - kept intentionally light so the dark ink text used
-// on them stays readable. The matching visual palette lives in Index.html.
-const THREAD_COLORS = ["blue", "red", "green", "yellow", "gray", "lavender", "lilac", "orange"];
+// on them stays readable. The matching visual palette (and VIBGYOR ordering)
+// lives in Index.html; this is just the write-side whitelist.
+const THREAD_COLORS = [
+  "amethyst", "grape", "wisteria", "lavender", "lilac",
+  "cobalt", "blueberry", "blue", "peacock", "eucalyptus",
+  "green", "basil", "avocado", "pistachio", "sage",
+  "citron", "yellow", "banana", "mango",
+  "tangerine", "pumpkin", "orange",
+  "tomato", "radicchio", "cherryblossom", "flamingo", "red",
+  "gray", "graphite", "cocoa", "birch",
+];
 
 // ---- Setup ----
 
