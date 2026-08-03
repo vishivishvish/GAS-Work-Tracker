@@ -500,8 +500,19 @@
     align-items: center;
     gap: 12px;
     padding: 16px 22px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid transparent;
+    cursor: pointer;
+    user-select: none;
   }
+  .person-card.open .person-card-header { border-bottom: 1px solid var(--line); }
+  .person-chevron {
+    color: var(--ink-faint);
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    width: 14px;
+    flex-shrink: 0;
+  }
+  .person-card.open .person-chevron { transform: rotate(90deg); }
   .person-avatar {
     width: 30px; height: 30px;
     border-radius: 50%;
@@ -527,7 +538,8 @@
     font-size: 11px;
     color: var(--ink-faint);
   }
-  .person-list { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 14px; }
+  .person-list { display: none; flex-direction: column; gap: 2px; padding: 8px 12px 14px; }
+  .person-card.open .person-list { display: flex; }
   .person-item {
     display: flex;
     align-items: flex-start;
@@ -860,10 +872,17 @@
     );
   }
 
+  // Owners collapsed by the user this session - not persisted server-side
+  // (there's no "owner" row in the Sheet to store it against), so this
+  // resets on reload, same as it would for a set of ad hoc filters.
+  var collapsedOwners = {};
+
   function renderPersonCard(owner, entries) {
+    var isOpen = !collapsedOwners[owner];
     return (
-      '<div class="person-card">' +
-        '<div class="person-card-header">' +
+      '<div class="person-card' + (isOpen ? " open" : "") + '" data-owner="' + escapeHtml(owner) + '">' +
+        '<div class="person-card-header" data-action="toggle-person" data-owner="' + escapeHtml(owner) + '">' +
+          '<span class="person-chevron">▶</span>' +
           '<span class="person-avatar">' + initialsFor(owner) + "</span>" +
           '<span class="person-name">' + escapeHtml(owner) + "</span>" +
           '<span class="person-count">' + entries.length + (entries.length === 1 ? " open item" : " open items") + "</span>" +
@@ -907,7 +926,15 @@
 
   document.getElementById("personContainer").addEventListener("click", function (e) {
     var el = e.target.closest("[data-action]");
-    if (!el || el.getAttribute("data-action") !== "toggle-item") return;
+    if (!el) return;
+    var action = el.getAttribute("data-action");
+    if (action === "toggle-person") {
+      var owner = el.getAttribute("data-owner");
+      collapsedOwners[owner] = !collapsedOwners[owner];
+      el.closest(".person-card").classList.toggle("open", !collapsedOwners[owner]);
+      return;
+    }
+    if (action !== "toggle-item") return;
     var itemId = el.getAttribute("data-item-id");
     setSyncing(true);
     google.script.run
