@@ -3,8 +3,10 @@
 A horizontal, Trello-like tracker for managing a large number of ongoing
 work threads at once. Each numbered thread branches out into sub-threads
 laid out side by side, and each sub-thread holds a list of lettered,
-checkable action steps. Threads can be dragged to reorder them, and
-threads/sub-threads/items can each carry an optional date.
+checkable action steps. Threads can be dragged to reorder them, colored
+from a 31-option picker, and threads/sub-threads/items can each carry an
+optional date. A second tab pivots the same data into a per-person
+checklist of open items.
 
 Runs as a Google Apps Script web app, backed by a Google Sheet, inside your
 own Google Workspace account: no external hosting, no separate login.
