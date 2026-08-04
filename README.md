@@ -9,7 +9,8 @@ optional date. A second tab pivots the same data into a per-person
 checklist of open items.
 
 Runs as a Google Apps Script web app, backed by a Google Sheet, inside your
-own Google Workspace account: no external hosting, no separate login.
+own Google Workspace account: no external hosting, no separate login
+required beyond your own Google account.
 
 ## Features
 
