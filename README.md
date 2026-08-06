@@ -1,6 +1,6 @@
 # Vishnu's Landscape (GAS-Work-Tracker)
 
-A horizontal, Trello-like tracker for managing a large number of ongoing
+A horizontal, Trello-like work tracker for managing a large number of ongoing
 work threads at once. Each numbered thread branches out into sub-threads
 laid out side by side, and each sub-thread holds a list of lettered,
 checkable action steps. Threads can be dragged to reorder them, colored
