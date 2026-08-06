@@ -8,6 +8,9 @@ from a 31-option picker, and threads/sub-threads/items can each carry an
 optional date. A second tab pivots the same data into a per-person
 checklist of open items.
 
+Everything is read/write straight from the underlying Sheet, so nothing
+about the board's state ever lives only in the browser tab.
+
 Runs as a Google Apps Script web app, backed by a Google Sheet, inside your
 own Google Workspace account: no external hosting, no separate login
 required beyond your own Google account.
