@@ -1,4 +1,4 @@
-# Vishnu's Landscape (GAS-Work-Tracker)
+# Google Apps Script Work Tracker
 
 A horizontal, Trello-like work tracker for managing a large number of ongoing
 work threads at once. Each numbered thread branches out into sub-threads
